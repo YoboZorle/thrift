@@ -61,7 +61,7 @@ extension ItemCategoryX on ItemCategory {
       );
 }
 
-enum ItemCondition { brandNew, likeNew, good, fair }
+enum ItemCondition { brandNew, likeNew, good, fair, faulty }
 
 extension ItemConditionX on ItemCondition {
   String get label {
@@ -74,6 +74,8 @@ extension ItemConditionX on ItemCondition {
         return 'Good';
       case ItemCondition.fair:
         return 'Fair';
+      case ItemCondition.faulty:
+        return 'Faulty';
     }
   }
 

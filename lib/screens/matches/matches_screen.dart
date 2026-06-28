@@ -10,6 +10,8 @@ import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/swipe_match_provider.dart';
 import '../../widgets/common_widgets.dart';
+import '../listings/add_item_screen.dart';
+import '../listings/my_listings_screen.dart';
 import 'likes_you_section.dart';
 import 'match_detail_screen.dart';
 
@@ -48,6 +50,22 @@ class _MatchesScreenState extends State<MatchesScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Matches'),
+        actions: [
+          IconButton(
+            tooltip: 'My listings',
+            icon: const Icon(Icons.inventory_2_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MyListingsScreen()),
+            ),
+          ),
+          IconButton(
+            tooltip: 'List an item',
+            icon: const Icon(Icons.add_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AddItemScreen()),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tab,
           indicatorColor: AppColors.primary,

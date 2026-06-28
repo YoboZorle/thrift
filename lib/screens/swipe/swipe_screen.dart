@@ -77,6 +77,18 @@ class _SwipeScreenState extends State<SwipeScreen> {
     }
   }
 
+  /// When the visible top card hits its listing window (48h; 5 min in test),
+  /// drop expired listings from the deck so they can no longer be matched.
+  Future<void> _onCardExpired(ItemModel item) async {
+    if (!mounted) return;
+    if (_cardController.currentItem?.id != item.id) return;
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId != null) {
+      setState(() => _exhausted = false);
+      await context.read<SwipeMatchProvider>().loadDeck(userId);
+    }
+  }
+
   Future<void> _saveItem(ItemModel item) async {
     final userId = context.read<AuthProvider>().currentUser!.id;
     final nowSaved =
@@ -106,10 +118,10 @@ class _SwipeScreenState extends State<SwipeScreen> {
     if (!mounted || decision == null) return;
     switch (decision) {
       case SwipeDecision.like:
-        _cardController.swipeRight();
+        await _decideFromReview(item, SwipeDirection.like);
         break;
       case SwipeDecision.pass:
-        _cardController.swipeLeft();
+        await _decideFromReview(item, SwipeDirection.pass);
         break;
       case SwipeDecision.save:
         await _saveItem(item);
@@ -117,6 +129,22 @@ class _SwipeScreenState extends State<SwipeScreen> {
       case SwipeDecision.none:
         break;
     }
+  }
+
+  /// Decisions made on the full review page act on THAT exact item (not just
+  /// whatever card happens to be on top), record it, drop it from the deck so
+  /// it never returns, and surface the match dialog on a match.
+  Future<void> _decideFromReview(ItemModel item, SwipeDirection dir) async {
+    final userId = context.read<AuthProvider>().currentUser!.id;
+    final provider = context.read<SwipeMatchProvider>();
+    final match = await provider.swipe(
+      userId: userId,
+      target: item,
+      direction: dir,
+    );
+    if (mounted) setState(() => _exhausted = false);
+    await provider.loadDeck(userId);
+    if (match != null && mounted) _showMatchDialog(match);
   }
 
   void _showMatchDialog(MatchModel match) {
@@ -218,15 +246,19 @@ class _SwipeScreenState extends State<SwipeScreen> {
               onFilter: () => _openFilter(context),
             ),
             Expanded(child: _buildDeck(swipeMatch)),
-            _ActionBar(
-              enabled: _viewDeck.isNotEmpty && !_exhausted,
-              canUndo: swipeMatch.canUndo,
-              onPass: () => _cardController.swipeLeft(),
-              onUndo: _onUndo,
-              onSave: _onSave,
-              onLike: () => _cardController.swipeRight(),
-            ),
-            const SizedBox(height: 10),
+            // The Pass / interest action layer disappears when there are no
+            // cards to act on (all caught up).
+            if (_didInitialLoad && _viewDeck.isNotEmpty && !_exhausted) ...[
+              _ActionBar(
+                enabled: true,
+                canUndo: swipeMatch.canUndo,
+                onPass: () => _cardController.swipeLeft(),
+                onUndo: _onUndo,
+                onSave: _onSave,
+                onLike: () => _cardController.swipeRight(),
+              ),
+              const SizedBox(height: 10),
+            ],
           ],
         ),
       ),
@@ -274,6 +306,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
               owner: snap.data,
               distanceLabel: ServiceLocator.locationService.labelFor(item),
               onExpand: () => _openDetail(item, snap.data),
+              onExpire: () => _onCardExpired(item),
             ),
           );
         },
@@ -285,11 +318,18 @@ class _SwipeScreenState extends State<SwipeScreen> {
       fit: StackFit.expand,
       children: [
         if (_exhausted)
-          const EmptyState(
+          EmptyState(
             icon: Icons.done_all_rounded,
             title: 'All caught up!',
             message:
-                'You\'ve seen everything nearby. Tap undo to revisit, or check back soon.',
+                'You\'ve seen everything nearby. Check back soon for new listings.',
+            action: swipeMatch.canUndo
+                ? OutlinedButton.icon(
+                    onPressed: _onUndo,
+                    icon: const Icon(Icons.replay_rounded, size: 18),
+                    label: const Text('Undo last'),
+                  )
+                : null,
           )
         else
           const SizedBox.expand(),

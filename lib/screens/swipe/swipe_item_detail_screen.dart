@@ -8,6 +8,8 @@ import '../../models/item_model.dart';
 import '../../models/user_model.dart';
 import '../../services/service_locator.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/countdown_text.dart';
+import '../common/fullscreen_gallery.dart';
 
 /// What the user chose on the scrollable detail view; the swipe screen acts on
 /// it (triggering the same animated like/pass, or a save).
@@ -46,9 +48,7 @@ class _SwipeItemDetailScreenState extends State<SwipeItemDetailScreen> {
   Future<List<ItemModel>> _loadOwnerItems() async {
     final all =
         await ServiceLocator.repository.getItemsByOwner(widget.item.ownerId);
-    return all
-        .where((i) => i.id != widget.item.id && i.isActive)
-        .toList();
+    return all.where((i) => i.id != widget.item.id && i.isActive).toList();
   }
 
   @override
@@ -75,9 +75,7 @@ class _SwipeItemDetailScreenState extends State<SwipeItemDetailScreen> {
               Icons.arrow_back_rounded,
               () => Navigator.of(context).pop(SwipeDecision.none),
             ),
-            flexibleSpace: FlexibleSpaceBar(
-              background: _photoHeader(),
-            ),
+            flexibleSpace: FlexibleSpaceBar(background: _photoHeader()),
           ),
           SliverToBoxAdapter(
             child: Padding(
@@ -102,12 +100,14 @@ class _SwipeItemDetailScreenState extends State<SwipeItemDetailScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
+                      _countdownChip(),
                       if (item.estimatedValue != null)
                         _chip(Icons.sell_outlined,
-                            '≈ \$${item.estimatedValue!.toStringAsFixed(0)}'),
+                            '≈ ${Formatters.money(item.estimatedValue!)}'),
                       _chip(Icons.location_on_outlined, distance),
                       _chip(Icons.graphic_eq, item.condition.label),
-                      _chip(null, '${item.category.emoji} ${item.category.label}'),
+                      _chip(null,
+                          '${item.category.emoji} ${item.category.label}'),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -123,8 +123,48 @@ class _SwipeItemDetailScreenState extends State<SwipeItemDetailScreen> {
                         ? 'No description provided.'
                         : item.description,
                     style: const TextStyle(
-                        color: AppColors.textSecondary, height: 1.5, fontSize: 15),
+                        color: AppColors.textSecondary,
+                        height: 1.5,
+                        fontSize: 15),
                   ),
+                  if (item.defectNote.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.nope.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: AppColors.nope.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.report_problem_outlined,
+                              size: 18, color: AppColors.nope),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Faulty — stated defect',
+                                    style: TextStyle(
+                                        color: AppColors.nope,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12.5)),
+                                const SizedBox(height: 2),
+                                Text(item.defectNote,
+                                    style: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 13.5,
+                                        height: 1.35)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 6),
                   Text('Listed ${Formatters.timeAgo(item.createdAt)}',
                       style: const TextStyle(
@@ -149,11 +189,18 @@ class _SwipeItemDetailScreenState extends State<SwipeItemDetailScreen> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        PageView.builder(
-          controller: _pageController,
-          itemCount: _images.length,
-          onPageChanged: (i) => setState(() => _page = i),
-          itemBuilder: (_, i) => ItemImage(source: _images[i]),
+        GestureDetector(
+          onTap: () => FullscreenGallery.open(
+            context,
+            images: _images,
+            initialIndex: _page,
+          ),
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: _images.length,
+            onPageChanged: (i) => setState(() => _page = i),
+            itemBuilder: (_, i) => ItemImage(source: _images[i]),
+          ),
         ),
         const Positioned.fill(
           child: IgnorePointer(
@@ -239,8 +286,8 @@ class _SwipeItemDetailScreenState extends State<SwipeItemDetailScreen> {
             const SizedBox(height: 18),
             Text(
               'More from ${widget.owner?.name ?? 'this swapper'}',
-              style: const TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w700),
+              style:
+                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -353,6 +400,34 @@ class _SwipeItemDetailScreenState extends State<SwipeItemDetailScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _countdownChip() {
+    return CountdownText(
+      deadline: widget.item.createdAt.add(AppConfig.listingWindow),
+      builder: (context, label, expired) {
+        final color = expired ? AppColors.nope : AppColors.primary;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(expired ? Icons.timer_off_outlined : Icons.timer_outlined,
+                  size: 15, color: color),
+              const SizedBox(width: 5),
+              Text(expired ? 'Expired' : '$label left',
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+            ],
+          ),
+        );
+      },
     );
   }
 

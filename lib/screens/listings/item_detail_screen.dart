@@ -46,7 +46,7 @@ class ItemDetailScreen extends StatelessWidget {
                       ),
                       if (item.estimatedValue != null)
                         TagChip(
-                          label: '~\$${item.estimatedValue!.toStringAsFixed(0)}',
+                          label: '~${Formatters.money(item.estimatedValue!)}',
                           icon: Icons.sell_outlined,
                         ),
                     ],

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:thrift/models/enums.dart';
 
+import '../../core/constants/app_config.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/item_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/items_provider.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/countdown_text.dart';
 import 'add_item_screen.dart';
 import 'item_detail_screen.dart';
 
@@ -95,6 +97,41 @@ class _ListingCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   ItemImage(source: item.primaryImage),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: CountdownText(
+                      deadline:
+                          item.createdAt.add(AppConfig.listingWindow),
+                      builder: (context, label, expired) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: expired
+                              ? AppColors.nope.withValues(alpha: 0.9)
+                              : Colors.black.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                                expired
+                                    ? Icons.timer_off_rounded
+                                    : Icons.timer_outlined,
+                                size: 12,
+                                color: Colors.white),
+                            const SizedBox(width: 4),
+                            Text(expired ? 'Expired' : '$label left',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                   if (!item.isActive)
                     Container(
                       color: Colors.black.withValues(alpha: 0.5),

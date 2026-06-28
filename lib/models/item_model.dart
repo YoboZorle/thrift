@@ -19,6 +19,13 @@ class ItemModel {
   final double? latitude;
   final double? longitude;
 
+  /// Owner's city/state at listing time (used for location-based matching).
+  final String city;
+  final String state;
+
+  /// If the condition is faulty, this describes the fault/defect.
+  final String defectNote;
+
   final bool isActive;
   final DateTime createdAt;
 
@@ -33,6 +40,9 @@ class ItemModel {
     this.estimatedValue,
     this.latitude,
     this.longitude,
+    this.city = '',
+    this.state = '',
+    this.defectNote = '',
     this.isActive = true,
     required this.createdAt,
   });
@@ -48,6 +58,9 @@ class ItemModel {
     double? estimatedValue,
     double? latitude,
     double? longitude,
+    String? city,
+    String? state,
+    String? defectNote,
     bool? isActive,
   }) {
     return ItemModel(
@@ -61,6 +74,9 @@ class ItemModel {
       estimatedValue: estimatedValue ?? this.estimatedValue,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      city: city ?? this.city,
+      state: state ?? this.state,
+      defectNote: defectNote ?? this.defectNote,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt,
     );
@@ -77,6 +93,9 @@ class ItemModel {
         'estimatedValue': estimatedValue,
         'latitude': latitude,
         'longitude': longitude,
+        'city': city,
+        'state': state,
+        'defectNote': defectNote,
         'isActive': isActive,
         'createdAt': createdAt.toIso8601String(),
       };
@@ -93,6 +112,9 @@ class ItemModel {
         estimatedValue: (map['estimatedValue'] as num?)?.toDouble(),
         latitude: (map['latitude'] as num?)?.toDouble(),
         longitude: (map['longitude'] as num?)?.toDouble(),
+        city: (map['city'] ?? '') as String,
+        state: (map['state'] ?? '') as String,
+        defectNote: (map['defectNote'] ?? '') as String,
         isActive: (map['isActive'] ?? true) as bool,
         createdAt: DateTime.parse(map['createdAt'] as String),
       );

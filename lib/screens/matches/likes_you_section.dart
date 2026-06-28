@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/constants/app_config.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/enums.dart';
@@ -11,6 +12,7 @@ import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/swipe_match_provider.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/countdown_text.dart';
 import 'match_detail_screen.dart';
 
 /// "Likes You" inbox — people who've liked one of YOUR items. Swap back (like
@@ -60,6 +62,10 @@ class _LikeTileState extends State<_LikeTile> {
   Future<void> _respond(SwipeDirection direction) async {
     final swipeMatch = context.read<SwipeMatchProvider>();
     final userId = context.read<AuthProvider>().currentUser!.id;
+    // Capture stable refs: responding reloads the inbox, which disposes THIS
+    // tile before the await returns — so we can't rely on its context after.
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
 
     final match = await swipeMatch.respondToLike(
@@ -68,31 +74,42 @@ class _LikeTileState extends State<_LikeTile> {
       direction: direction,
     );
 
-    if (!mounted) return;
-    setState(() => _busy = false);
+    if (mounted) setState(() => _busy = false);
 
-    if (direction == SwipeDirection.like && match != null) {
-      _showMatch(match);
-    } else if (direction == SwipeDirection.pass) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    if (direction == SwipeDirection.like) {
+      if (match != null) {
+        _showMatch(navigator, match);
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Liked back — this offer has expired.')),
+        );
+      }
+    } else {
+      messenger.showSnackBar(
         const SnackBar(content: Text('Dismissed')),
       );
     }
   }
 
-  void _showMatch(MatchModel match) {
+  void _showMatch(NavigatorState navigator, MatchModel match) {
     showDialog(
-      context: context,
+      context: navigator.context,
       barrierDismissible: false,
       builder: (_) => _MatchPopup(
         onReview: () {
-          Navigator.of(context).pop();
-          Navigator.of(context).push(
+          navigator.pop();
+          navigator.push(
             MaterialPageRoute(builder: (_) => MatchDetailScreen(match: match)),
           );
         },
       ),
     );
+  }
+
+  void _reloadLikes() {
+    if (!mounted) return;
+    final userId = context.read<AuthProvider>().currentUser!.id;
+    context.read<SwipeMatchProvider>().loadLikesReceived(userId);
   }
 
   @override
@@ -148,6 +165,37 @@ class _LikeTileState extends State<_LikeTile> {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                               color: AppColors.textHint, fontSize: 12),
+                        ),
+                        const SizedBox(height: 3),
+                        CountdownText(
+                          deadline: incoming.createdAt
+                              .add(AppConfig.listingWindow),
+                          onExpired: _reloadLikes,
+                          builder: (context, label, expired) => Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                  expired
+                                      ? Icons.timer_off_outlined
+                                      : Icons.timer_outlined,
+                                  size: 12,
+                                  color: expired
+                                      ? AppColors.nope
+                                      : AppColors.primary),
+                              const SizedBox(width: 4),
+                              Text(
+                                expired
+                                    ? 'Offer expired'
+                                    : 'Reciprocate within $label',
+                                style: TextStyle(
+                                    color: expired
+                                        ? AppColors.nope
+                                        : AppColors.primary,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),

@@ -1,6 +1,10 @@
+import 'package:dropdown_flutter/custom_dropdown.dart';
+import '../../core/theme/dropdown_styles.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/constants/us_states.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
@@ -8,6 +12,7 @@ import '../../providers/items_provider.dart';
 import '../../providers/swipe_match_provider.dart';
 import '../../services/service_locator.dart';
 import '../../widgets/common_widgets.dart';
+import '../activity/activity_screen.dart';
 import '../listings/my_listings_screen.dart';
 import '../saved/saved_screen.dart';
 
@@ -65,14 +70,16 @@ class ProfileScreen extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const SavedScreen()),
             ),
           ),
+          _tile(
+            icon: Icons.history_rounded,
+            title: 'Swap & match history',
+            subtitle: 'See everything you liked, passed and matched',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ActivityScreen()),
+            ),
+          ),
           const SizedBox(height: 20),
           _sectionLabel('Account'),
-          _tile(
-            icon: Icons.swap_horizontal_circle_outlined,
-            title: 'Dev: switch persona',
-            subtitle: 'Become another seeded user to test reciprocal matches',
-            onTap: () => _switchAccount(context),
-          ),
           _tile(
             icon: Icons.refresh,
             title: 'Reset demo data',
@@ -262,54 +269,6 @@ class ProfileScreen extends StatelessWidget {
     await context.read<SwipeMatchProvider>().refreshAll(userId);
   }
 
-  Future<void> _switchAccount(BuildContext context) async {
-    final auth = context.read<AuthProvider>();
-    final accounts = await auth.demoAccounts();
-    if (!context.mounted) return;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetCtx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Text('Switch persona',
-                    style:
-                        TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-              ),
-              ...accounts.map(
-                (u) => ListTile(
-                  leading: ClipOval(
-                    child: SizedBox(
-                      width: 42,
-                      height: 42,
-                      child: ItemImage(source: u.avatarUrl ?? ''),
-                    ),
-                  ),
-                  title: Text(u.name),
-                  subtitle: u.location.isNotEmpty ? Text(u.location) : null,
-                  trailing: u.id == auth.currentUser?.id
-                      ? const Icon(Icons.check_circle, color: AppColors.primary)
-                      : null,
-                  onTap: () async {
-                    Navigator.of(sheetCtx).pop();
-                    await auth.devSwitchPersona(u.id);
-                    if (!context.mounted) return;
-                    await _reloadFor(context, u.id);
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   Future<void> _confirmReset(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -372,53 +331,114 @@ class ProfileScreen extends StatelessWidget {
 
   Future<void> _editProfile(BuildContext context, UserModel user) async {
     final nameCtrl = TextEditingController(text: user.name);
-    final locationCtrl = TextEditingController(text: user.location);
+    final cityCtrl = TextEditingController(text: user.city);
     final bioCtrl = TextEditingController(text: user.bio);
+    String? gender = user.gender;
+    String? state = user.state.isEmpty ? null : user.state;
+    DateTime? dob = user.dob;
+    const genders = ['Female', 'Male', 'Non-binary', 'Prefer not to say'];
 
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetCtx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 4,
-            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('Edit profile',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Name'),
-                textCapitalization: TextCapitalization.words,
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheet) {
+            Future<void> pickDob() async {
+              final now = DateTime.now();
+              final picked = await showDatePicker(
+                context: sheetCtx,
+                initialDate: dob ?? DateTime(now.year - 22),
+                firstDate: DateTime(now.year - 100),
+                lastDate: DateTime(now.year - 13),
+              );
+              if (picked != null) setSheet(() => dob = picked);
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 4,
+                bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 20,
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: locationCtrl,
-                decoration: const InputDecoration(labelText: 'Location'),
-                textCapitalization: TextCapitalization.words,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('Edit profile',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Name'),
+                      textCapitalization: TextCapitalization.words,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownFlutter<String>(
+              decoration: appDropdownDecoration(),
+                      hintText: 'Gender',
+                      items: genders,
+                      initialItem: gender,
+                      onChanged: (v) => setSheet(() => gender = v),
+                    ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: pickDob,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceAlt,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Text(
+                          dob == null
+                              ? 'Date of birth'
+                              : DateFormat('MMMM d, yyyy').format(dob!),
+                          style: TextStyle(
+                              color: dob == null
+                                  ? AppColors.textHint
+                                  : AppColors.textPrimary),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: cityCtrl,
+                      decoration: const InputDecoration(labelText: 'City'),
+                      textCapitalization: TextCapitalization.words,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownFlutter<String>(
+              decoration: appDropdownDecoration(),
+                      hintText: 'State',
+                      items: usStates,
+                      initialItem: state,
+                      onChanged: (v) => setSheet(() => state = v),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: bioCtrl,
+                      decoration: const InputDecoration(labelText: 'Bio'),
+                      maxLines: 3,
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: () => Navigator.of(sheetCtx).pop(true),
+                      child: const Text('Save'),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: bioCtrl,
-                decoration: const InputDecoration(labelText: 'Bio'),
-                maxLines: 3,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: () => Navigator.of(sheetCtx).pop(true),
-                child: const Text('Save'),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -426,12 +446,15 @@ class ProfileScreen extends StatelessWidget {
     if (saved == true && context.mounted) {
       await context.read<AuthProvider>().updateProfile(
             name: nameCtrl.text.trim(),
-            location: locationCtrl.text.trim(),
+            city: cityCtrl.text.trim(),
+            state: state,
+            gender: gender,
+            dob: dob,
             bio: bioCtrl.text.trim(),
           );
     }
     nameCtrl.dispose();
-    locationCtrl.dispose();
+    cityCtrl.dispose();
     bioCtrl.dispose();
   }
 }

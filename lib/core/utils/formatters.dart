@@ -13,4 +13,8 @@ class Formatters {
   }
 
   static String chatTime(DateTime date) => DateFormat('h:mm a').format(date);
+
+  /// Platform currency is Naira.
+  static String money(num value) =>
+      '₦${NumberFormat('#,##0').format(value)}';
 }

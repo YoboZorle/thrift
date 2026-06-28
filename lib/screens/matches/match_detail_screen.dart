@@ -244,7 +244,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                     ),
                     if (item.estimatedValue != null)
                       TagChip(
-                        label: '~\$${item.estimatedValue!.toStringAsFixed(0)}',
+                        label: '~${Formatters.money(item.estimatedValue!)}',
                         color: AppColors.primaryDark,
                       ),
                   ],

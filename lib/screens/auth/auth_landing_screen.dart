@@ -95,11 +95,6 @@ class AuthLandingScreen extends StatelessWidget {
                     height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2.4),
                   ),
-                )
-              else
-                TextButton(
-                  onPressed: () => _social(context, auth.continueAsGuest),
-                  child: const Text('Browse as guest'),
                 ),
               const SizedBox(height: 8),
               const Text(

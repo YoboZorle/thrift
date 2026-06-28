@@ -9,7 +9,14 @@ class SwipeCardController {
   _SwipeCardStackState? _state;
 
   void _attach(_SwipeCardStackState state) => _state = state;
-  void _detach() => _state = null;
+
+  /// Only clear if the disposing state is the one we currently point at. When
+  /// the deck key changes, the new stack attaches before the old one disposes;
+  /// a naive detach would null out the freshly-attached state and silently
+  /// break every action button.
+  void _detach(_SwipeCardStackState state) {
+    if (identical(_state, state)) _state = null;
+  }
 
   void swipeRight() => _state?.programmaticSwipe(SwipeDirection.like);
   void swipeLeft() => _state?.programmaticSwipe(SwipeDirection.pass);
@@ -82,7 +89,7 @@ class _SwipeCardStackState extends State<SwipeCardStack>
 
   @override
   void dispose() {
-    widget.controller?._detach();
+    widget.controller?._detach(this);
     _animController.dispose();
     super.dispose();
   }

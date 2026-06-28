@@ -11,7 +11,6 @@ import 'auth_service.dart';
 /// - Phone: a code is "sent" and any 6-digit code is accepted (try `123456`).
 /// - Google / Apple: create a persistent local profile (stubbed until a real
 ///   backend is added).
-/// - Guest: a local browse-only session.
 ///
 /// Sessions are saved to local storage, so you stay signed in across restarts.
 class LocalAuthService implements AuthService {
@@ -95,17 +94,6 @@ class LocalAuthService implements AuthService {
       email: 'demo.user@icloud.com',
       displayName: 'Demo User',
       provider: 'apple',
-    );
-    await _persist(id);
-    return id;
-  }
-
-  @override
-  Future<AuthIdentity> signInGuest({String? name}) async {
-    final id = AuthIdentity(
-      uid: 'guest_local',
-      displayName: name ?? 'Guest',
-      provider: 'guest',
     );
     await _persist(id);
     return id;

@@ -6,14 +6,12 @@ import '../services/auth/auth_identity.dart';
 import '../services/auth/auth_service.dart';
 import '../services/data_repository.dart';
 import '../services/local_storage_service.dart';
-import '../services/seed_data.dart';
 
 /// Bridges a *real* authenticated identity (phone / Google / Apple via
-/// [AuthService]) to the in-app "swap persona" stored in the data layer.
-///
-/// The persona is pinned to the seeded `user_me` record so the matchmaking demo
-/// (sample listings + incoming likes) works end-to-end the moment you sign in.
-/// Your real phone/email/name are overlaid onto that persona.
+/// [AuthService]) to a UNIQUE in-app user record keyed by the identity's uid.
+/// Every signed-in account therefore owns its own profile, items, matches and
+/// chats. Required profile setup (name, gender, DOB, city/state) fills in the
+/// rest before the app unlocks.
 class AuthProvider extends ChangeNotifier {
   AuthProvider(this._auth, this._repo, this._storage);
 
@@ -24,7 +22,6 @@ class AuthProvider extends ChangeNotifier {
   AuthIdentity? _identity;
   UserModel? _currentUser;
   bool _loading = true;
-  bool _profileSetupDone = false;
 
   // Phone verification state
   PhoneAuthHandle? _phoneHandle;
@@ -41,7 +38,17 @@ class AuthProvider extends ChangeNotifier {
   UserModel? get currentUser => _currentUser;
   bool get isLoading => _loading;
   bool get isAuthenticated => _identity != null;
-  bool get needsProfileSetup => isAuthenticated && !_profileSetupDone;
+
+  /// Setup is required until the unique user has the essentials filled in.
+  bool get needsProfileSetup {
+    final u = _currentUser;
+    if (!isAuthenticated || u == null) return false;
+    return u.name.trim().isEmpty ||
+        u.gender == null ||
+        u.dob == null ||
+        u.city.trim().isEmpty;
+  }
+
   bool get codeSent => _phoneHandle != null;
   String? get pendingPhone => _pendingPhone;
 
@@ -51,7 +58,6 @@ class AuthProvider extends ChangeNotifier {
 
     await _auth.init();
     _identity = await _auth.currentIdentity();
-    _profileSetupDone = _storage.readBool(AppConstants.kProfileSetupDone);
 
     if (_identity != null) {
       await _bindPersona();
@@ -61,36 +67,25 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Resolve (and persist) the swap persona for the current identity.
+  /// Resolve (and persist) the unique user record for the current identity.
   Future<void> _bindPersona() async {
-    final savedId =
-        _storage.readString(AppConstants.kCurrentUserId) ?? SeedData.meId;
-    var persona =
-        await _repo.getUser(savedId) ?? await _repo.getUser(SeedData.meId);
-
-    persona ??= UserModel(
-      id: SeedData.meId,
-      name: 'You',
-      location: '',
-      createdAt: DateTime.now(),
-    );
+    final uid = _identity!.uid;
+    var user = await _repo.getUser(uid);
+    user ??= UserModel(id: uid, name: '', createdAt: DateTime.now());
 
     // Overlay verified contact info from the real identity.
-    persona = persona.copyWith(
-      phone: _identity!.phoneNumber ?? persona.phone,
-      email: _identity!.email ?? persona.email,
+    user = user.copyWith(
+      phone: _identity!.phoneNumber ?? user.phone,
+      email: _identity!.email ?? user.email,
     );
-    // Adopt the provider's name only if the persona is still the default.
     final dn = _identity!.displayName;
-    if ((persona.name.isEmpty || persona.name == 'You') &&
-        dn != null &&
-        dn.isNotEmpty) {
-      persona = persona.copyWith(name: dn);
+    if (user.name.trim().isEmpty && dn != null && dn.isNotEmpty) {
+      user = user.copyWith(name: dn);
     }
 
-    await _repo.upsertUser(persona);
-    await _storage.writeString(AppConstants.kCurrentUserId, persona.id);
-    _currentUser = persona;
+    await _repo.upsertUser(user);
+    await _storage.writeString(AppConstants.kCurrentUserId, uid);
+    _currentUser = user;
   }
 
   Future<void> _onAuthenticated(AuthIdentity id) async {
@@ -182,46 +177,25 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> continueWithGoogle() => _runSocial(_auth.signInWithGoogle);
   Future<bool> continueWithApple() => _runSocial(_auth.signInWithApple);
-  Future<bool> continueAsGuest() => _runSocial(() => _auth.signInGuest());
 
-  // ---- Profile setup ----
+  // ---- Profile setup (required) ----
   Future<void> completeProfileSetup({
     required String name,
-    required String location,
+    required String city,
+    required String state,
+    required String gender,
+    required DateTime dob,
     String bio = '',
-    String? avatarUrl,
-  }) async {
-    if (_currentUser != null) {
-      final updated = _currentUser!.copyWith(
-        name: name,
-        location: location,
-        bio: bio,
-        avatarUrl: avatarUrl,
-      );
-      await _repo.upsertUser(updated);
-      _currentUser = updated;
-    }
-    _profileSetupDone = true;
-    await _storage.writeBool(AppConstants.kProfileSetupDone, true);
-    notifyListeners();
-  }
-
-  Future<void> skipProfileSetup() async {
-    _profileSetupDone = true;
-    await _storage.writeBool(AppConstants.kProfileSetupDone, true);
-    notifyListeners();
-  }
-
-  Future<void> updateProfile({
-    String? name,
-    String? location,
-    String? bio,
     String? avatarUrl,
   }) async {
     if (_currentUser == null) return;
     final updated = _currentUser!.copyWith(
       name: name,
-      location: location,
+      city: city,
+      state: state,
+      location: '$city, $state',
+      gender: gender,
+      dob: dob,
       bio: bio,
       avatarUrl: avatarUrl,
     );
@@ -230,17 +204,32 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Dev helper: switch the in-app persona (NOT the auth identity) to another
-  /// seeded account so you can like back and test reciprocal matches.
-  Future<void> devSwitchPersona(String userId) async {
-    final user = await _repo.getUser(userId);
-    if (user == null) return;
-    _currentUser = user;
-    await _storage.writeString(AppConstants.kCurrentUserId, userId);
+  Future<void> updateProfile({
+    String? name,
+    String? city,
+    String? state,
+    String? bio,
+    String? gender,
+    DateTime? dob,
+    String? avatarUrl,
+  }) async {
+    if (_currentUser == null) return;
+    final city0 = city ?? _currentUser!.city;
+    final state0 = state ?? _currentUser!.state;
+    final updated = _currentUser!.copyWith(
+      name: name,
+      city: city,
+      state: state,
+      location: (city != null || state != null) ? '$city0, $state0' : null,
+      bio: bio,
+      gender: gender,
+      dob: dob,
+      avatarUrl: avatarUrl,
+    );
+    await _repo.upsertUser(updated);
+    _currentUser = updated;
     notifyListeners();
   }
-
-  Future<List<UserModel>> demoAccounts() => _repo.getUsers();
 
   Future<void> signOut() async {
     await _auth.signOut();

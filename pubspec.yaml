@@ -47,6 +47,9 @@ dependencies:
   intl: ^0.19.0
   image_picker: ^1.1.2
 
+  # Customizable dropdown selects (gender, category, condition, state, etc.)
+  dropdown_flutter: ^1.1.0
+
   # On-device capabilities (not a backend): OS permissions, device location,
   # and local match notifications.
   permission_handler: ^11.3.1

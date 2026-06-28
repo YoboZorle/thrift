@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_config.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../models/enums.dart';
 import '../../../models/item_model.dart';
 import '../../../models/user_model.dart';
 import '../../../widgets/common_widgets.dart';
+import '../../../widgets/countdown_text.dart';
 
 /// Dark, Bumble-style swipe card: full-bleed image with a tap-to-browse photo
 /// carousel and an overlapping info panel (JUST LISTED / title / meta row).
@@ -16,12 +18,14 @@ class SwipeCard extends StatefulWidget {
     this.owner,
     this.distanceLabel,
     this.onExpand,
+    this.onExpire,
   });
 
   final ItemModel item;
   final UserModel? owner;
   final String? distanceLabel;
   final VoidCallback? onExpand;
+  final VoidCallback? onExpire;
 
   @override
   State<SwipeCard> createState() => _SwipeCardState();
@@ -36,6 +40,44 @@ class _SwipeCardState extends State<SwipeCard> {
   bool get _justListed {
     final hours = DateTime.now().difference(widget.item.createdAt).inHours;
     return hours <= AppConfig.justListedHours;
+  }
+
+  DateTime get _deadline =>
+      widget.item.createdAt.add(AppConfig.listingWindow);
+
+  Widget _countdownPill() {
+    return CountdownText(
+      deadline: _deadline,
+      onExpired: widget.onExpire,
+      builder: (context, label, expired) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+          decoration: BoxDecoration(
+            color: expired
+                ? const Color(0xFFF43F5E).withValues(alpha: 0.85)
+                : Colors.black.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(expired ? Icons.timer_off_rounded : Icons.timer_outlined,
+                  size: 13, color: Colors.white),
+              const SizedBox(width: 5),
+              Text(
+                expired ? 'Expired' : '$label left',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _tapZone(bool next) {
@@ -133,6 +175,8 @@ class _SwipeCardState extends State<SwipeCard> {
                 children: [
                   Row(
                     children: [
+                      _countdownPill(),
+                      const SizedBox(width: 8),
                       if (_justListed)
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -180,7 +224,7 @@ class _SwipeCardState extends State<SwipeCard> {
                   Row(
                     children: [
                       if (item.estimatedValue != null) ...[
-                        _meta('≈ \$${item.estimatedValue!.toStringAsFixed(0)}'),
+                        _meta('≈ ${Formatters.money(item.estimatedValue!)}'),
                         _dot(),
                       ],
                       _meta(

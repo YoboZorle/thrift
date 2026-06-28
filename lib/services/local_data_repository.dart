@@ -1,5 +1,6 @@
 import 'package:uuid/uuid.dart';
 
+import '../core/constants/app_config.dart';
 import '../core/constants/app_constants.dart';
 import '../models/enums.dart';
 import '../models/item_model.dart';
@@ -38,9 +39,7 @@ class LocalDataRepository implements DataRepository {
       _items
         ..clear()
         ..addAll(SeedData.items());
-      _swipes
-        ..clear()
-        ..addAll(SeedData.incomingLikes());
+      _swipes.clear();
       await _persistAll();
       await _storage.writeBool(AppConstants.kSeeded, true);
     } else {
@@ -130,8 +129,57 @@ class LocalDataRepository implements DataRepository {
   @override
   Future<void> addItem(ItemModel item) async {
     _items.add(item);
+    await _generateAdmirers(item);
     await _storage.writeList(
         AppConstants.kItems, _items.map((e) => e.toMap()).toList());
+  }
+
+  /// When a user lists an item, a couple of *compatible* community members
+  /// (same city/state, or sharing the item's category) like it. This is the
+  /// location/interest/category basis for matching: liking any of their items
+  /// back forms a match.
+  Future<void> _generateAdmirers(ItemModel item) async {
+    final compatible = _users.where((u) {
+      if (u.id == item.ownerId) return false;
+      final sameCity = u.city.isNotEmpty && u.city == item.city;
+      final sameState = u.state.isNotEmpty && u.state == item.state;
+      final sharesCategory =
+          _items.any((i) => i.ownerId == u.id && i.category == item.category);
+      return sameCity || sameState || sharesCategory;
+    }).toList();
+
+    // Always surface at least someone, so likes/matches/chats stay demoable —
+    // compatible swappers first, then anyone else.
+    final candidates = compatible.isNotEmpty
+        ? compatible
+        : _users.where((u) => u.id != item.ownerId).toList();
+
+    // Prefer closest first (city > state > category).
+    candidates.sort((a, b) {
+      int score(UserModel u) =>
+          (u.city == item.city ? 4 : 0) +
+          (u.state == item.state ? 2 : 0) +
+          (_items.any((i) => i.ownerId == u.id && i.category == item.category)
+              ? 1
+              : 0);
+      return score(b).compareTo(score(a));
+    });
+
+    for (final admirer in candidates.take(2)) {
+      final already = _swipes.any((s) =>
+          s.swiperUserId == admirer.id && s.targetItemId == item.id);
+      if (already) continue;
+      _swipes.add(SwipeModel(
+        id: _uuid.v4(),
+        swiperUserId: admirer.id,
+        targetUserId: item.ownerId,
+        targetItemId: item.id,
+        direction: SwipeDirection.like,
+        createdAt: DateTime.now(),
+      ));
+    }
+    await _storage.writeList(
+        AppConstants.kSwipes, _swipes.map((e) => e.toMap()).toList());
   }
 
   @override
@@ -149,6 +197,43 @@ class LocalDataRepository implements DataRepository {
         AppConstants.kItems, _items.map((e) => e.toMap()).toList());
   }
 
+  UserModel? _userById(String id) {
+    for (final u in _users) {
+      if (u.id == id) return u;
+    }
+    return null;
+  }
+
+  /// Compatibility signal used for ranking + admirer generation: same city,
+  /// same state, or a shared item-category interest.
+  int _affinity(ItemModel item, UserModel? me, Set<ItemCategory> myCategories) {
+    var score = 0;
+    if (me != null) {
+      if (item.city.isNotEmpty && item.city == me.city) score += 4;
+      if (item.state.isNotEmpty && item.state == me.state) score += 2;
+    }
+    if (myCategories.contains(item.category)) score += 1;
+    return score;
+  }
+
+  // ----- Expiry (48h listing window; 5 min in test) -----
+
+  bool _isExpired(DateTime createdAt) =>
+      DateTime.now().difference(createdAt) > AppConfig.listingWindow;
+
+  bool _likeAlive(SwipeModel s) => !_isExpired(s.createdAt);
+
+  /// Ids of items locked into a match (these are taken / off the deck).
+  Set<String> _matchedItemIds() {
+    final ids = <String>{};
+    for (final m in _matches) {
+      ids
+        ..add(m.itemAId)
+        ..add(m.itemBId);
+    }
+    return ids;
+  }
+
   @override
   Future<List<ItemModel>> getSwipeDeck({
     required String currentUserId,
@@ -158,13 +243,30 @@ class LocalDataRepository implements DataRepository {
         .map((s) => s.targetItemId)
         .toSet();
 
+    final me = _userById(currentUserId);
+    final myCategories = _items
+        .where((i) => i.ownerId == currentUserId)
+        .map((i) => i.category)
+        .toSet();
+    final matchedIds = _matchedItemIds();
+
     final deck = _items
         .where((i) =>
             i.ownerId != currentUserId &&
             i.isActive &&
-            !swipedItemIds.contains(i.id))
+            !swipedItemIds.contains(i.id) &&
+            // Taken (already matched) or past the listing window -> off the deck.
+            !matchedIds.contains(i.id) &&
+            !_isExpired(i.createdAt))
         .toList();
-    deck.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    // Rank by location + interest affinity, then recency.
+    deck.sort((a, b) {
+      final sa = _affinity(a, me, myCategories);
+      final sb = _affinity(b, me, myCategories);
+      if (sa != sb) return sb.compareTo(sa);
+      return b.createdAt.compareTo(a.createdAt);
+    });
     return deck;
   }
 
@@ -188,12 +290,14 @@ class LocalDataRepository implements DataRepository {
       final me = swipe.swiperUserId;
       final them = swipe.targetUserId;
 
-      // Reciprocal interest at the USER level: have they liked ANY item of mine?
+      // Reciprocal interest at the USER level: have they liked ANY item of
+      // mine — AND is that like still within the 48h window (not expired)?
       SwipeModel? theirLike;
       for (final s in _swipes) {
         if (s.direction == SwipeDirection.like &&
             s.swiperUserId == them &&
-            s.targetUserId == me) {
+            s.targetUserId == me &&
+            _likeAlive(s)) {
           theirLike = s;
           break;
         }
@@ -216,6 +320,7 @@ class LocalDataRepository implements DataRepository {
           lastActivity: DateTime.now(),
         );
         _matches.add(match);
+        _seedOpeningMessage(match);
       }
     }
 
@@ -223,7 +328,31 @@ class LocalDataRepository implements DataRepository {
         AppConstants.kSwipes, _swipes.map((e) => e.toMap()).toList());
     await _storage.writeList(
         AppConstants.kMatches, _matches.map((e) => e.toMap()).toList());
+    await _storage.writeList(
+        AppConstants.kMessages, _messages.map((e) => e.toMap()).toList());
     return match;
+  }
+
+  /// Gives every new match a unique opening message from the other party,
+  /// so the chat thread starts with real, swap-specific content.
+  void _seedOpeningMessage(MatchModel match) {
+    String titleOf(String id) {
+      for (final i in _items) {
+        if (i.id == id) return i.title;
+      }
+      return 'your item';
+    }
+
+    final theirItemTitle = titleOf(match.itemBId);
+    final yourItemTitle = titleOf(match.itemAId);
+    _messages.add(MessageModel(
+      id: _uuid.v4(),
+      matchId: match.id,
+      senderId: match.userBId,
+      text: 'Hey! Love your $yourItemTitle 🙌 '
+          'Want to swap it for my $theirItemTitle?',
+      createdAt: DateTime.now(),
+    ));
   }
 
   @override
@@ -255,12 +384,13 @@ class LocalDataRepository implements DataRepository {
 
   @override
   Future<List<SwipeModel>> getPendingLikesReceived(String userId) async {
-    // Latest like per admirer that targets one of my items...
+    // Latest like per admirer that targets one of my items (and isn't expired)...
     final byAdmirer = <String, SwipeModel>{};
     for (final s in _swipes) {
       if (s.targetUserId != userId ||
           s.direction != SwipeDirection.like ||
-          s.swiperUserId == userId) {
+          s.swiperUserId == userId ||
+          !_likeAlive(s)) {
         continue;
       }
       final existing = byAdmirer[s.swiperUserId];

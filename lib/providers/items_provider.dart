@@ -36,6 +36,9 @@ class ItemsProvider extends ChangeNotifier {
     required ItemCondition condition,
     required List<String> images,
     double? estimatedValue,
+    String city = '',
+    String state = '',
+    String defectNote = '',
   }) async {
     final item = ItemModel(
       id: _uuid.v4(),
@@ -46,6 +49,9 @@ class ItemsProvider extends ChangeNotifier {
       condition: condition,
       images: images,
       estimatedValue: estimatedValue,
+      city: city,
+      state: state,
+      defectNote: defectNote.trim(),
       createdAt: DateTime.now(),
     );
     await _repo.addItem(item);

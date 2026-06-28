@@ -25,8 +25,5 @@ abstract class AuthService {
   Future<AuthIdentity> signInWithGoogle();
   Future<AuthIdentity> signInWithApple();
 
-  /// Guest / browse-only local session.
-  Future<AuthIdentity> signInGuest({String? name});
-
   Future<void> signOut();
 }

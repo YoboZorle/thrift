@@ -14,7 +14,7 @@ class AppConstants {
   static const String kSaved = 'ts_saved';
   static const String kCurrentUserId = 'ts_current_user_id';
   static const String kProfileSetupDone = 'ts_profile_setup_done';
-  static const String kSeeded = 'ts_seeded_v3';
+  static const String kSeeded = 'ts_seeded_v7';
 
   // Local auth session (persists the signed-in identity across restarts)
   static const String kAuthSession = 'ts_auth_session';

@@ -53,6 +53,20 @@ class SwipeMatchProvider extends ChangeNotifier {
   Future<List<ItemModel>> itemsOf(String userId) =>
       _repo.getItemsByOwner(userId);
 
+  /// Full activity history for the current user: their swipes + their matches.
+  Future<List<SwipeModel>> mySwipes(String userId) async {
+    final all = await _repo.getSwipes();
+    final mine = all.where((s) => s.swiperUserId == userId).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return mine;
+  }
+
+  Future<List<MatchModel>> matchesFor(String userId) =>
+      _repo.getMatches(userId);
+
+  Future<List<ItemModel>> allItems() => _repo.getAllItems();
+  Future<List<UserModel>> allUsers() => _repo.getUsers();
+
   Future<void> loadDeck(String userId) async {
     _deckLoading = true;
     notifyListeners();
@@ -138,6 +152,7 @@ class SwipeMatchProvider extends ChangeNotifier {
 
     final match = await _repo.recordSwipeAndCheckMatch(swipeRecord);
     await loadLikesReceived(userId);
+    await loadDeck(userId);
     if (match != null) {
       await refreshMatches(userId);
       await _notifyMatch(match, userId);
