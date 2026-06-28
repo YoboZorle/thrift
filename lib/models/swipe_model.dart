@@ -1,22 +1,25 @@
 import 'enums.dart';
 
-/// A single swipe is directional and product-to-product:
-/// "I want to swap MY item (swiperItemId) for THEIR item (targetItemId)".
+/// A directional expression of interest: "User [swiperUserId] likes item
+/// [targetItemId] (owned by [targetUserId])."
 ///
-/// A match is formed when a reciprocal like exists for the same item pair.
+/// A match is formed at the USER level: when two people have each liked at
+/// least one of the other's items. The specific items to exchange are then
+/// arranged in chat. [swiperItemId] is retained (optional) so a future backend
+/// can attach a specific offered item if desired.
 class SwipeModel {
   final String id;
   final String swiperUserId;
-  final String swiperItemId; // the item I'm offering
+  final String swiperItemId; // optional: a specific offered item ('' if none)
   final String targetUserId;
-  final String targetItemId; // the item I want
+  final String targetItemId; // the item being liked
   final SwipeDirection direction;
   final DateTime createdAt;
 
   const SwipeModel({
     required this.id,
     required this.swiperUserId,
-    required this.swiperItemId,
+    this.swiperItemId = '',
     required this.targetUserId,
     required this.targetItemId,
     required this.direction,
@@ -36,7 +39,7 @@ class SwipeModel {
   factory SwipeModel.fromMap(Map<String, dynamic> map) => SwipeModel(
         id: map['id'] as String,
         swiperUserId: map['swiperUserId'] as String,
-        swiperItemId: map['swiperItemId'] as String,
+        swiperItemId: (map['swiperItemId'] ?? '') as String,
         targetUserId: map['targetUserId'] as String,
         targetItemId: map['targetItemId'] as String,
         direction: SwipeDirectionX.fromName(map['direction'] as String?),

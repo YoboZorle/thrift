@@ -23,11 +23,11 @@ abstract class DataRepository {
   Future<void> updateItem(ItemModel item);
   Future<void> deleteItem(String id);
 
-  /// Items that [currentUserId] can swipe on while offering [activeItemId]:
-  /// excludes own items and ones already swiped with that active item.
+  /// Items that [currentUserId] can swipe on: all other users' active items
+  /// they haven't swiped yet. No "offered item" is required — liking an item
+  /// just expresses interest; the swap itself is arranged in chat after a match.
   Future<List<ItemModel>> getSwipeDeck({
     required String currentUserId,
-    required String activeItemId,
   });
 
   // ----- Swipes & Matches -----

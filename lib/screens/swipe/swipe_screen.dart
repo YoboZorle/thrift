@@ -7,13 +7,12 @@ import '../../models/item_model.dart';
 import '../../models/match_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/items_provider.dart';
 import '../../providers/swipe_match_provider.dart';
 import '../../services/service_locator.dart';
 import '../../widgets/common_widgets.dart';
 import '../listings/add_item_screen.dart';
-import '../listings/item_detail_screen.dart';
 import '../matches/match_detail_screen.dart';
+import 'swipe_item_detail_screen.dart';
 import 'widgets/swipe_card.dart';
 import 'widgets/swipe_card_stack.dart';
 
@@ -34,34 +33,18 @@ class _SwipeScreenState extends State<SwipeScreen> {
   // Memoised view deck so the card stack isn't reset on every rebuild.
   String _deckKey = '';
   List<ItemModel> _viewDeck = [];
-  String? _personaId;
+  bool _didInitialLoad = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureActiveItem());
-  }
-
-  Future<void> _ensureActiveItem() async {
-    final auth = context.read<AuthProvider>();
-    final userId = auth.currentUser?.id;
-    if (userId == null) return;
-    final items = context.read<ItemsProvider>().myItems;
-    final swipeMatch = context.read<SwipeMatchProvider>();
-
-    final active = swipeMatch.activeItem;
-    final personaChanged = _personaId != userId;
-    _personaId = userId;
-
-    if (items.isEmpty) return;
-    if (active == null ||
-        personaChanged ||
-        active.ownerId != userId) {
-      _exhausted = false;
-      await swipeMatch.setActiveItem(userId, items.first);
-    } else {
-      await swipeMatch.loadDeck(userId);
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final userId = context.read<AuthProvider>().currentUser?.id;
+      if (userId != null) {
+        await context.read<SwipeMatchProvider>().loadDeck(userId);
+      }
+      if (mounted) setState(() => _didInitialLoad = true);
+    });
   }
 
   Future<UserModel?> _owner(String id) async {
@@ -84,7 +67,8 @@ class _SwipeScreenState extends State<SwipeScreen> {
   Future<void> _onUndo() async {
     if (!_cardController.undo()) return;
     final userId = context.read<AuthProvider>().currentUser!.id;
-    final item = await context.read<SwipeMatchProvider>().undoLast(userId: userId);
+    final item =
+        await context.read<SwipeMatchProvider>().undoLast(userId: userId);
     if (mounted) setState(() => _exhausted = false);
     if (item != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -93,20 +77,45 @@ class _SwipeScreenState extends State<SwipeScreen> {
     }
   }
 
-  Future<void> _onSave() async {
-    final current = _cardController.currentItem;
-    if (current == null) return;
+  Future<void> _saveItem(ItemModel item) async {
     final userId = context.read<AuthProvider>().currentUser!.id;
     final nowSaved =
-        await context.read<SwipeMatchProvider>().toggleSave(userId, current.id);
+        await context.read<SwipeMatchProvider>().toggleSave(userId, item.id);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(nowSaved
-              ? 'Saved "${current.title}"'
-              : 'Removed "${current.title}" from saved'),
+              ? 'Saved "${item.title}"'
+              : 'Removed "${item.title}" from saved'),
         ),
       );
+    }
+  }
+
+  void _onSave() {
+    final current = _cardController.currentItem;
+    if (current != null) _saveItem(current);
+  }
+
+  Future<void> _openDetail(ItemModel item, UserModel? owner) async {
+    final decision = await Navigator.of(context).push<SwipeDecision>(
+      MaterialPageRoute(
+        builder: (_) => SwipeItemDetailScreen(item: item, owner: owner),
+      ),
+    );
+    if (!mounted || decision == null) return;
+    switch (decision) {
+      case SwipeDecision.like:
+        _cardController.swipeRight();
+        break;
+      case SwipeDecision.pass:
+        _cardController.swipeLeft();
+        break;
+      case SwipeDecision.save:
+        await _saveItem(item);
+        break;
+      case SwipeDecision.none:
+        break;
     }
   }
 
@@ -123,47 +132,6 @@ class _SwipeScreenState extends State<SwipeScreen> {
             MaterialPageRoute(builder: (_) => MatchDetailScreen(match: match)),
           );
         },
-      ),
-    );
-  }
-
-  void _openSelector(List<ItemModel> items, SwipeMatchProvider sm, String uid) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetCtx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text('Swap with which item?',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-            ),
-            ...items.map(
-              (it) => ListTile(
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: ItemImage(
-                      source: it.primaryImage, width: 46, height: 46),
-                ),
-                title: Text(it.title),
-                subtitle: Text(it.category.label),
-                trailing: it.id == sm.activeItem?.id
-                    ? const Icon(Icons.check_circle, color: AppColors.primary)
-                    : null,
-                onTap: () {
-                  Navigator.of(sheetCtx).pop();
-                  _ownerCache.clear();
-                  setState(() => _exhausted = false);
-                  sm.setActiveItem(uid, it);
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
       ),
     );
   }
@@ -190,7 +158,10 @@ class _SwipeScreenState extends State<SwipeScreen> {
                     label: const Text('All'),
                     selected: _filter == null,
                     onSelected: (_) {
-                      setState(() => _filter = null);
+                      setState(() {
+                        _filter = null;
+                        _exhausted = false;
+                      });
                       Navigator.of(sheetCtx).pop();
                     },
                   ),
@@ -199,7 +170,10 @@ class _SwipeScreenState extends State<SwipeScreen> {
                       label: Text('${c.emoji} ${c.label}'),
                       selected: _filter == c,
                       onSelected: (_) {
-                        setState(() => _filter = c);
+                        setState(() {
+                          _filter = c;
+                          _exhausted = false;
+                        });
                         Navigator.of(sheetCtx).pop();
                       },
                     ),
@@ -215,22 +189,15 @@ class _SwipeScreenState extends State<SwipeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final items = context.watch<ItemsProvider>().myItems;
     final swipeMatch = context.watch<SwipeMatchProvider>();
     final auth = context.watch<AuthProvider>();
-    final userId = auth.currentUser?.id;
     final location = (auth.currentUser?.location.isNotEmpty ?? false)
         ? auth.currentUser!.location
         : 'Discover near you';
 
-    // Re-ensure when persona changes (dev switch) while this stays mounted.
-    if (userId != null && userId != _personaId) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _ensureActiveItem());
-    }
-
-    // Memoise the filtered view deck.
-    final activeId = swipeMatch.activeItem?.id ?? '';
-    final key = '$activeId|${_filter?.name ?? 'all'}|${swipeMatch.deck.length}';
+    // Memoise the filtered view deck (keyed by filter + deck size so swipes,
+    // which don't change the deck list, never reset the card stack).
+    final key = '${_filter?.name ?? 'all'}|${swipeMatch.deck.length}';
     if (key != _deckKey) {
       _deckKey = key;
       _viewDeck = _filter == null
@@ -250,40 +217,15 @@ class _SwipeScreenState extends State<SwipeScreen> {
               ),
               onFilter: () => _openFilter(context),
             ),
-            if (items.isNotEmpty)
-              _SwapWithBar(
-                active: swipeMatch.activeItem,
-                onTap: userId == null
-                    ? null
-                    : () => _openSelector(items, swipeMatch, userId),
-              ),
-            Expanded(
-              child: items.isEmpty
-                  ? EmptyState(
-                      icon: Icons.add_box_outlined,
-                      title: 'List an item first',
-                      message:
-                          'You need at least one item to swap before you can start discovering.',
-                      action: ElevatedButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                              builder: (_) => const AddItemScreen()),
-                        ),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add an item'),
-                      ),
-                    )
-                  : _buildDeck(swipeMatch),
+            Expanded(child: _buildDeck(swipeMatch)),
+            _ActionBar(
+              enabled: _viewDeck.isNotEmpty && !_exhausted,
+              canUndo: swipeMatch.canUndo,
+              onPass: () => _cardController.swipeLeft(),
+              onUndo: _onUndo,
+              onSave: _onSave,
+              onLike: () => _cardController.swipeRight(),
             ),
-            if (items.isNotEmpty)
-              _ActionBar(
-                enabled: _viewDeck.isNotEmpty && !_exhausted,
-                canUndo: swipeMatch.canUndo,
-                onPass: () => _cardController.swipeLeft(),
-                onUndo: _onUndo,
-                onSave: _onSave,
-                onLike: () => _cardController.swipeRight(),
-              ),
             const SizedBox(height: 10),
           ],
         ),
@@ -292,7 +234,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
   }
 
   Widget _buildDeck(SwipeMatchProvider swipeMatch) {
-    if (swipeMatch.deckLoading) {
+    if (!_didInitialLoad) {
       return const Center(child: CircularProgressIndicator());
     }
     if (_viewDeck.isEmpty) {
@@ -300,8 +242,17 @@ class _SwipeScreenState extends State<SwipeScreen> {
         icon: Icons.done_all_rounded,
         title: 'All caught up!',
         message: _filter != null
-            ? 'No more items in this category. Try clearing the filter.'
-            : 'No more items to swipe with this listing. Switch listing or check back later.',
+            ? 'No items in this category right now. Try clearing the filter.'
+            : 'You\'ve seen everything nearby. List an item or check back soon.',
+        action: _filter != null
+            ? OutlinedButton(
+                onPressed: () => setState(() {
+                  _filter = null;
+                  _exhausted = false;
+                }),
+                child: const Text('Clear filter'),
+              )
+            : null,
       );
     }
 
@@ -321,12 +272,8 @@ class _SwipeScreenState extends State<SwipeScreen> {
             builder: (context, snap) => SwipeCard(
               item: item,
               owner: snap.data,
-              distanceLabel:
-                  ServiceLocator.locationService.labelFor(item),
-              onExpand: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => ItemDetailScreen(item: item)),
-              ),
+              distanceLabel: ServiceLocator.locationService.labelFor(item),
+              onExpand: () => _openDetail(item, snap.data),
             ),
           );
         },
@@ -342,7 +289,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
             icon: Icons.done_all_rounded,
             title: 'All caught up!',
             message:
-                'No more items to swipe with this listing. Tap undo to revisit, switch listing, or check back later.',
+                'You\'ve seen everything nearby. Tap undo to revisit, or check back soon.',
           )
         else
           const SizedBox.expand(),
@@ -366,7 +313,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
         children: [
           _roundButton(Icons.add_rounded, onAdd),
@@ -382,12 +329,23 @@ class _Header extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 1),
-                Text(
-                  location,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 12.5),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.location_on,
+                        size: 13, color: AppColors.primary),
+                    const SizedBox(width: 2),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 220),
+                      child: Text(
+                        location,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 12.5),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -410,59 +368,6 @@ class _Header extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: AppColors.textPrimary, size: 22),
-      ),
-    );
-  }
-}
-
-class _SwapWithBar extends StatelessWidget {
-  const _SwapWithBar({required this.active, this.onTap});
-  final ItemModel? active;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.swap_horiz_rounded,
-                  size: 16, color: AppColors.primary),
-              const SizedBox(width: 6),
-              Text(
-                'Swapping: ',
-                style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 12.5),
-              ),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 180),
-                child: Text(
-                  active?.title ?? '—',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12.5,
-                  ),
-                ),
-              ),
-              const Icon(Icons.keyboard_arrow_down_rounded,
-                  size: 18, color: AppColors.textSecondary),
-            ],
-          ),
-        ),
       ),
     );
   }

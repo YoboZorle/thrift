@@ -156,29 +156,29 @@ class SeedData {
     ];
   }
 
-  /// Pre-seeded incoming likes so "Likes You" is populated and the very first
-  /// matching demo works: Amara already wants to swap her shirt for my shoe.
+  /// Pre-seeded incoming likes so "Likes You" is populated and the first match
+  /// works instantly: each admirer has already liked one of YOUR items, so the
+  /// moment you like any of their items back, it's a match.
   static List<SwipeModel> incomingLikes() {
     final now = DateTime.now();
-    SwipeModel like(String swiper, String swiperItem, String targetItem) {
+    SwipeModel like(String swiper, String myItem) {
       return SwipeModel(
         id: _uuid.v4(),
         swiperUserId: swiper,
-        swiperItemId: swiperItem,
         targetUserId: meId,
-        targetItemId: targetItem,
+        targetItemId: myItem,
         direction: SwipeDirection.like,
-        createdAt: now.subtract(Duration(minutes: 30 + swiperItem.length)),
+        createdAt: now.subtract(Duration(minutes: 30 + swiper.length)),
       );
     }
 
     return [
-      // Amara wants my shoe, offering her denim shirt
-      like('user_amara', 'item_amara_shirt', 'item_my_shoe'),
-      // Zara wants my bag, offering her leather jacket
-      like('user_zara', 'item_zara_jacket', 'item_my_bag'),
-      // Kunle wants my bed, offering his headphones
-      like('user_kunle', 'item_kunle_headphones', 'item_my_bed'),
+      // Amara already likes your sneakers.
+      like('user_amara', 'item_my_shoe'),
+      // Zara already likes your leather tote.
+      like('user_zara', 'item_my_bag'),
+      // Kunle already likes your bed frame.
+      like('user_kunle', 'item_my_bed'),
     ];
   }
 }

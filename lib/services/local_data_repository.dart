@@ -152,11 +152,9 @@ class LocalDataRepository implements DataRepository {
   @override
   Future<List<ItemModel>> getSwipeDeck({
     required String currentUserId,
-    required String activeItemId,
   }) async {
-    final swipedTargetIds = _swipes
-        .where((s) =>
-            s.swiperUserId == currentUserId && s.swiperItemId == activeItemId)
+    final swipedItemIds = _swipes
+        .where((s) => s.swiperUserId == currentUserId)
         .map((s) => s.targetItemId)
         .toSet();
 
@@ -164,7 +162,7 @@ class LocalDataRepository implements DataRepository {
         .where((i) =>
             i.ownerId != currentUserId &&
             i.isActive &&
-            !swipedTargetIds.contains(i.id))
+            !swipedItemIds.contains(i.id))
         .toList();
     deck.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return deck;
@@ -187,24 +185,32 @@ class LocalDataRepository implements DataRepository {
 
     MatchModel? match;
     if (swipe.direction == SwipeDirection.like) {
-      // Reciprocal like on the SAME item pair?
-      final reciprocal = _swipes.any((s) =>
-          s.direction == SwipeDirection.like &&
-          s.swiperUserId == swipe.targetUserId &&
-          s.swiperItemId == swipe.targetItemId &&
-          s.targetUserId == swipe.swiperUserId &&
-          s.targetItemId == swipe.swiperItemId);
+      final me = swipe.swiperUserId;
+      final them = swipe.targetUserId;
 
-      final alreadyMatched = _matches.any((m) =>
-          (m.itemAId == swipe.swiperItemId && m.itemBId == swipe.targetItemId) ||
-          (m.itemAId == swipe.targetItemId && m.itemBId == swipe.swiperItemId));
+      // Reciprocal interest at the USER level: have they liked ANY item of mine?
+      SwipeModel? theirLike;
+      for (final s in _swipes) {
+        if (s.direction == SwipeDirection.like &&
+            s.swiperUserId == them &&
+            s.targetUserId == me) {
+          theirLike = s;
+          break;
+        }
+      }
 
-      if (reciprocal && !alreadyMatched) {
+      // Only one match per pair of users.
+      final alreadyMatched = _matches
+          .any((m) => m.involves(me) && m.involves(them));
+
+      if (theirLike != null && !alreadyMatched) {
         match = MatchModel(
           id: _uuid.v4(),
-          userAId: swipe.swiperUserId,
-          itemAId: swipe.swiperItemId,
-          userBId: swipe.targetUserId,
+          // itemA belongs to userA (me): the item of mine THEY wanted.
+          userAId: me,
+          itemAId: theirLike.targetItemId,
+          // itemB belongs to userB (them): the item of theirs I just liked.
+          userBId: them,
           itemBId: swipe.targetItemId,
           createdAt: DateTime.now(),
           lastActivity: DateTime.now(),
@@ -249,23 +255,35 @@ class LocalDataRepository implements DataRepository {
 
   @override
   Future<List<SwipeModel>> getPendingLikesReceived(String userId) async {
-    // Likes targeting my items...
-    final incoming = _swipes.where((s) =>
-        s.targetUserId == userId && s.direction == SwipeDirection.like);
+    // Latest like per admirer that targets one of my items...
+    final byAdmirer = <String, SwipeModel>{};
+    for (final s in _swipes) {
+      if (s.targetUserId != userId ||
+          s.direction != SwipeDirection.like ||
+          s.swiperUserId == userId) {
+        continue;
+      }
+      final existing = byAdmirer[s.swiperUserId];
+      if (existing == null || s.createdAt.isAfter(existing.createdAt)) {
+        byAdmirer[s.swiperUserId] = s;
+      }
+    }
 
-    // ...that I haven't responded to (no swipe of mine on their item with my item)
-    // and that aren't already a match.
-    return incoming.where((s) {
-      final responded = _swipes.any((mine) =>
-          mine.swiperUserId == userId &&
-          mine.swiperItemId == s.targetItemId &&
-          mine.targetItemId == s.swiperItemId);
-      final matched = _matches.any((m) =>
-          (m.itemAId == s.swiperItemId && m.itemBId == s.targetItemId) ||
-          (m.itemAId == s.targetItemId && m.itemBId == s.swiperItemId));
-      return !responded && !matched;
-    }).toList()
+    bool isResolved(String admirerId) {
+      // Already matched with them, or I've already acted on one of their items.
+      final matched =
+          _matches.any((m) => m.involves(userId) && m.involves(admirerId));
+      final responded = _swipes
+          .any((s) => s.swiperUserId == userId && s.targetUserId == admirerId);
+      return matched || responded;
+    }
+
+    final pending = byAdmirer.entries
+        .where((e) => !isResolved(e.key))
+        .map((e) => e.value)
+        .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return pending;
   }
 
   // ----- Messages -----

@@ -13,8 +13,8 @@ import '../../providers/swipe_match_provider.dart';
 import '../../widgets/common_widgets.dart';
 import 'match_detail_screen.dart';
 
-/// "Likes You" inbox — incoming pending likes on MY items. Liking back forms a
-/// match for that exact product pair; passing dismisses it.
+/// "Likes You" inbox — people who've liked one of YOUR items. Swap back (like
+/// any of their items) to make it a match; pass dismisses them.
 class LikesYouSection extends StatelessWidget {
   const LikesYouSection({super.key});
 
@@ -27,10 +27,10 @@ class LikesYouSection extends StatelessWidget {
     if (likes.isEmpty) {
       return const EmptyState(
         icon: Icons.volunteer_activism_outlined,
-        title: 'No incoming likes',
+        title: 'No likes yet',
         message:
-            'When someone wants to swap their item for one of yours, their '
-            'offer lands here. Like back to make it a match.',
+            'When someone likes one of your items, they show up here. Swap '
+            'back to make it a match.',
       );
     }
 
@@ -72,15 +72,15 @@ class _LikeTileState extends State<_LikeTile> {
     setState(() => _busy = false);
 
     if (direction == SwipeDirection.like && match != null) {
-      _showMatch(match, userId);
+      _showMatch(match);
     } else if (direction == SwipeDirection.pass) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passed on this offer')),
+        const SnackBar(content: Text('Dismissed')),
       );
     }
   }
 
-  void _showMatch(MatchModel match, String userId) {
+  void _showMatch(MatchModel match) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -88,9 +88,7 @@ class _LikeTileState extends State<_LikeTile> {
         onReview: () {
           Navigator.of(context).pop();
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => MatchDetailScreen(match: match),
-            ),
+            MaterialPageRoute(builder: (_) => MatchDetailScreen(match: match)),
           );
         },
       ),
@@ -104,14 +102,16 @@ class _LikeTileState extends State<_LikeTile> {
 
     return FutureBuilder<List<dynamic>>(
       future: Future.wait([
-        swipeMatch.item(incoming.swiperItemId), // their offered item
-        swipeMatch.item(incoming.targetItemId), // my item they want
         swipeMatch.user(incoming.swiperUserId), // them
+        swipeMatch.item(incoming.targetItemId), // my item they liked
+        swipeMatch.itemsOf(incoming.swiperUserId), // their items to swap for
       ]),
       builder: (context, snap) {
-        final theirItem = snap.data?[0] as ItemModel?;
+        final them = snap.data?[0] as UserModel?;
         final myItem = snap.data?[1] as ItemModel?;
-        final them = snap.data?[2] as UserModel?;
+        final theirItems = (snap.data?[2] as List<ItemModel>? ?? const [])
+            .where((i) => i.isActive)
+            .toList();
 
         return Container(
           decoration: BoxDecoration(
@@ -125,20 +125,12 @@ class _LikeTileState extends State<_LikeTile> {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                    backgroundImage: (them?.avatarUrl != null)
-                        ? NetworkImage(them!.avatarUrl!)
-                        : null,
-                    child: them?.avatarUrl == null
-                        ? Text(
-                            (them?.name ?? '?').characters.first,
-                            style: const TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w700),
-                          )
-                        : null,
+                  ClipOval(
+                    child: SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: ItemImage(source: them?.avatarUrl ?? ''),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -151,45 +143,58 @@ class _LikeTileState extends State<_LikeTile> {
                               fontWeight: FontWeight.w700, fontSize: 15),
                         ),
                         Text(
-                          'wants to swap · ${Formatters.timeAgo(incoming.createdAt)}',
+                          'likes your ${myItem?.title ?? 'item'} · ${Formatters.timeAgo(incoming.createdAt)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                               color: AppColors.textHint, fontSize: 12),
                         ),
                       ],
                     ),
                   ),
+                  if (myItem != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 38,
+                        height: 38,
+                        child: ItemImage(source: myItem.primaryImage),
+                      ),
+                    ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _miniItem(
-                      theirItem,
-                      label: 'They give',
-                      accent: AppColors.like,
+              if (theirItems.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Swap for one of their items',
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 12.5),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 76,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: theirItems.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, i) => ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: SizedBox(
+                        width: 76,
+                        height: 76,
+                        child: ItemImage(source: theirItems[i].primaryImage),
+                      ),
                     ),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(Icons.swap_horiz,
-                        color: AppColors.primary, size: 22),
-                  ),
-                  Expanded(
-                    child: _miniItem(
-                      myItem,
-                      label: 'For your',
-                      accent: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
               const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: _busy ? null : () => _respond(SwipeDirection.pass),
+                      onPressed:
+                          _busy ? null : () => _respond(SwipeDirection.pass),
                       icon: const Icon(Icons.close, size: 18),
                       label: const Text('Pass'),
                       style: OutlinedButton.styleFrom(
@@ -201,13 +206,14 @@ class _LikeTileState extends State<_LikeTile> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: _busy ? null : () => _respond(SwipeDirection.like),
+                      onPressed:
+                          _busy ? null : () => _respond(SwipeDirection.like),
                       icon: _busy
                           ? const SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
+                                  strokeWidth: 2, color: Colors.black),
                             )
                           : const Icon(Icons.swap_horiz, size: 18),
                       label: const Text('Swap back'),
@@ -221,47 +227,10 @@ class _LikeTileState extends State<_LikeTile> {
       },
     );
   }
-
-  Widget _miniItem(ItemModel? item, {required String label, required Color accent}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-              color: accent, fontSize: 11, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 4),
-        AspectRatio(
-          aspectRatio: 1.4,
-          child: Container(
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: item == null
-                ? const SizedBox()
-                : ItemImage(source: item.primaryImage),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          item?.title ?? '—',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-        ),
-      ],
-    );
-  }
 }
 
 class _MatchPopup extends StatelessWidget {
-  const _MatchPopup({
-    required this.onReview,
-  });
-
+  const _MatchPopup({required this.onReview});
   final VoidCallback onReview;
 
   @override
@@ -280,16 +249,16 @@ class _MatchPopup extends StatelessWidget {
             const Text(
               "It's a Swap Match! 🎉",
               style: TextStyle(
-                color: Colors.white,
+                color: Colors.black,
                 fontSize: 23,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w900,
               ),
             ),
             const SizedBox(height: 6),
             const Text(
               'You both want to swap. Review the details and start chatting.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: Colors.black87),
             ),
             const SizedBox(height: 22),
             SizedBox(
@@ -297,15 +266,15 @@ class _MatchPopup extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: onReview,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppColors.primaryDark,
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
                 ),
                 child: const Text('Review & chat'),
               ),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Later', style: TextStyle(color: Colors.white)),
+              child: const Text('Later', style: TextStyle(color: Colors.black)),
             ),
           ],
         ),

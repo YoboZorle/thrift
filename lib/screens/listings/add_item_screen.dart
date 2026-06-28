@@ -63,7 +63,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         _valueCtrl.text.trim().isEmpty ? null : double.tryParse(_valueCtrl.text.trim());
 
     // Fallback to a generated placeholder image if none picked, so the card
-    // always renders. Replace with Firebase Storage upload later.
+    // always renders. Swap for a real image upload when a backend is added.
     final images = _images.isNotEmpty
         ? List<String>.from(_images)
         : ['https://picsum.photos/seed/${DateTime.now().millisecondsSinceEpoch}/800/1000'];
@@ -78,7 +78,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
           estimatedValue: value,
         );
 
-    // Refresh deck in case this item becomes the active one.
+    // Refresh so the new listing is reflected app-wide.
     await context.read<SwipeMatchProvider>().loadDeck(userId);
 
     if (!mounted) return;

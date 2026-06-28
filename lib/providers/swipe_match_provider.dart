@@ -18,6 +18,10 @@ class _LastAction {
 
 /// Owns the swipe deck, matches and "likes you" inbox — they are tightly
 /// coupled through the matching logic, so they live together.
+///
+/// Matching is user-level: liking any of another person's items expresses
+/// interest, and a match forms once both people have liked something of the
+/// other's. The exact items to exchange are arranged in chat afterwards.
 class SwipeMatchProvider extends ChangeNotifier {
   SwipeMatchProvider(this._repo, this._notifications);
 
@@ -25,7 +29,6 @@ class SwipeMatchProvider extends ChangeNotifier {
   final NotificationService _notifications;
   static const _uuid = Uuid();
 
-  ItemModel? _activeItem;
   List<ItemModel> _deck = [];
   List<MatchModel> _matches = [];
   List<SwipeModel> _likesReceived = [];
@@ -34,7 +37,6 @@ class SwipeMatchProvider extends ChangeNotifier {
   final Set<String> _savedIds = {};
   _LastAction? _lastAction;
 
-  ItemModel? get activeItem => _activeItem;
   List<ItemModel> get deck => _deck;
   List<MatchModel> get matches => _matches;
   List<SwipeModel> get likesReceived => _likesReceived;
@@ -48,43 +50,28 @@ class SwipeMatchProvider extends ChangeNotifier {
   // ---- Lookup helpers shared with the UI ----
   Future<ItemModel?> item(String id) => _repo.getItem(id);
   Future<UserModel?> user(String id) => _repo.getUser(id);
-
-  Future<void> setActiveItem(String userId, ItemModel item) async {
-    _activeItem = item;
-    _lastAction = null;
-    await loadDeck(userId);
-  }
+  Future<List<ItemModel>> itemsOf(String userId) =>
+      _repo.getItemsByOwner(userId);
 
   Future<void> loadDeck(String userId) async {
-    if (_activeItem == null) {
-      _deck = [];
-      notifyListeners();
-      return;
-    }
     _deckLoading = true;
     notifyListeners();
-    _deck = await _repo.getSwipeDeck(
-      currentUserId: userId,
-      activeItemId: _activeItem!.id,
-    );
+    _deck = await _repo.getSwipeDeck(currentUserId: userId);
     _deckLoading = false;
     notifyListeners();
   }
 
-  /// Swipe the [target] item while offering [_activeItem]. Returns a match if
-  /// one was formed. The deck list is NOT mutated here — the card stack tracks
+  /// Like or pass an item. Returns a match if liking it completed a reciprocal
+  /// pair. The deck list is NOT mutated here — the card stack tracks
   /// progression, which keeps undo clean and avoids skipping cards.
   Future<MatchModel?> swipe({
     required String userId,
     required ItemModel target,
     required SwipeDirection direction,
   }) async {
-    if (_activeItem == null) return null;
-
     final swipeRecord = SwipeModel(
       id: _uuid.v4(),
       swiperUserId: userId,
-      swiperItemId: _activeItem!.id,
       targetUserId: target.ownerId,
       targetItemId: target.id,
       direction: direction,
@@ -96,14 +83,14 @@ class SwipeMatchProvider extends ChangeNotifier {
 
     if (match != null) {
       await refreshMatches(userId);
+      await loadLikesReceived(userId);
       await _notifyMatch(match, userId);
     }
     notifyListeners();
     return match;
   }
 
-  /// Undo the most recent swipe (re-shown by the card stack). Returns the item
-  /// that was un-swiped, if any.
+  /// Undo the most recent swipe (re-shown by the card stack).
   Future<ItemModel?> undoLast({required String userId}) async {
     final action = _lastAction;
     if (action == null) return null;
@@ -118,18 +105,33 @@ class SwipeMatchProvider extends ChangeNotifier {
     return action.item;
   }
 
-  /// Responding to an incoming like from the "Likes You" inbox.
+  /// Respond to an incoming like from the "Likes You" inbox. Liking back likes
+  /// the admirer's most recent active item, which (since they already like
+  /// yours) forms the match. Passing dismisses them from the inbox.
   Future<MatchModel?> respondToLike({
     required String userId,
     required SwipeModel incoming,
     required SwipeDirection direction,
   }) async {
+    final theirItems = await _repo.getItemsByOwner(incoming.swiperUserId);
+    ItemModel? target;
+    for (final i in theirItems) {
+      if (i.isActive) {
+        target = i;
+        break;
+      }
+    }
+    if (target == null) {
+      // Nothing to act on; just refresh the inbox.
+      await loadLikesReceived(userId);
+      return null;
+    }
+
     final swipeRecord = SwipeModel(
       id: _uuid.v4(),
       swiperUserId: userId,
-      swiperItemId: incoming.targetItemId, // my item they liked
       targetUserId: incoming.swiperUserId,
-      targetItemId: incoming.swiperItemId, // their item
+      targetItemId: target.id,
       direction: direction,
       createdAt: DateTime.now(),
     );
@@ -201,7 +203,7 @@ class SwipeMatchProvider extends ChangeNotifier {
       refreshMatches(userId),
       loadLikesReceived(userId),
       loadSaved(userId),
+      loadDeck(userId),
     ]);
-    if (_activeItem != null) await loadDeck(userId);
   }
 }
