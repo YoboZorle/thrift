@@ -1,0 +1,136 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/theme/app_colors.dart';
+import '../../core/utils/formatters.dart';
+import '../../models/item_model.dart';
+import '../../models/match_model.dart';
+import '../../models/user_model.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/swipe_match_provider.dart';
+import '../../widgets/common_widgets.dart';
+import '../chat/chat_screen.dart';
+
+/// Conversations list — every confirmed swap match is a chat thread.
+class ChatsScreen extends StatelessWidget {
+  const ChatsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final swipeMatch = context.watch<SwipeMatchProvider>();
+    final userId = context.watch<AuthProvider>().currentUser?.id;
+    final matches = swipeMatch.matches;
+
+    return Scaffold(
+      appBar: AppBar(
+          title: const Text('Chats'), automaticallyImplyLeading: false),
+      body: SafeArea(
+        top: false,
+        child: (userId == null || matches.isEmpty)
+            ? const EmptyState(
+                icon: Icons.chat_bubble_outline_rounded,
+                title: 'No chats yet',
+                message:
+                    'When you match with someone, your conversation appears here.',
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: matches.length,
+                separatorBuilder: (_, __) => const Divider(
+                  height: 1,
+                  indent: 84,
+                  color: AppColors.border,
+                ),
+                itemBuilder: (_, i) =>
+                    _ChatTile(match: matches[i], userId: userId),
+              ),
+      ),
+    );
+  }
+}
+
+class _ChatTile extends StatelessWidget {
+  const _ChatTile({required this.match, required this.userId});
+  final MatchModel match;
+  final String userId;
+
+  @override
+  Widget build(BuildContext context) {
+    final sm = context.read<SwipeMatchProvider>();
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        sm.user(match.otherUserId(userId)),
+        sm.item(match.myItemId(userId)),
+        sm.item(match.theirItemId(userId)),
+      ]),
+      builder: (context, snap) {
+        final other = snap.data?[0] as UserModel?;
+        final myItem = snap.data?[1] as ItemModel?;
+        final theirItem = snap.data?[2] as ItemModel?;
+
+        return ListTile(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          leading: Stack(
+            children: [
+              ClipOval(
+                child: SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: ItemImage(source: other?.avatarUrl ?? ''),
+                ),
+              ),
+              if (!match.seen)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    width: 13,
+                    height: 13,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.background, width: 2),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          title: Text(
+            other?.name ?? 'Swapper',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          subtitle: Text(
+            theirItem != null
+                ? 'Swap: ${theirItem.title}'
+                : 'Tap to start chatting',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+          trailing: Text(
+            Formatters.timeAgo(match.lastActivity),
+            style: const TextStyle(color: AppColors.textHint, fontSize: 11.5),
+          ),
+          onTap: other == null
+              ? null
+              : () {
+                  context
+                      .read<SwipeMatchProvider>()
+                      .markSeen(match.id, userId);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChatScreen(
+                        match: match,
+                        otherUser: other,
+                        myItem: myItem,
+                        theirItem: theirItem,
+                      ),
+                    ),
+                  );
+                },
+        );
+      },
+    );
+  }
+}
