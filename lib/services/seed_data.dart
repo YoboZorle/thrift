@@ -14,10 +14,18 @@ class SeedData {
   static const double _baseLat = 6.5244; // Lagos anchor
   static const double _baseLng = 3.3792;
 
+  // Picsum is a reliable, deterministic image CDN: the same seed always
+  // returns the same photo, and it doesn't rate-limit / 404 the way LoremFlickr
+  // did (which is what caused the broken images). The keyword is kept only so
+  // the call sites read meaningfully; the unique lock drives the seed.
   static String _photo(String keywords, int lock) =>
-      'https://loremflickr.com/800/1000/$keywords?lock=$lock';
+      'https://picsum.photos/seed/ts$lock/800/1000';
 
-  static String _avatar(int n) => 'https://i.pravatar.cc/400?img=$n';
+  // randomuser.me serves a fixed, reliable set of real-face portraits (0–99 per
+  // gender) as static files — far more dependable than pravatar.
+  static String _avatar(String gender, int n) =>
+      'https://randomuser.me/api/portraits/'
+      '${gender == 'Female' ? 'women' : 'men'}/${n % 100}.jpg';
 
   static List<UserModel> users() {
     final now = DateTime.now();
@@ -32,7 +40,7 @@ class SeedData {
         bio: bio,
         gender: gender,
         dob: DateTime(now.year - age, 4, 12),
-        avatarUrl: _avatar(avatar),
+        avatarUrl: _avatar(gender, avatar),
         createdAt: now,
       );
     }

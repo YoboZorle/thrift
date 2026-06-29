@@ -199,12 +199,22 @@ class SwipeMatchProvider extends ChangeNotifier {
   }
 
   Future<void> refreshMatches(String userId) async {
-    _matches = await _repo.getMatches(userId);
+    final list = await _repo.getMatches(userId);
+    // Recents at the top, with unread (unseen) matches surfaced first so new
+    // chats and unanswered ones lead the list.
+    list.sort((a, b) {
+      if (a.seen != b.seen) return a.seen ? 1 : -1;
+      return b.lastActivity.compareTo(a.lastActivity);
+    });
+    _matches = list;
     notifyListeners();
   }
 
   Future<void> loadLikesReceived(String userId) async {
-    _likesReceived = await _repo.getPendingLikesReceived(userId);
+    final list = await _repo.getPendingLikesReceived(userId);
+    // Most recent admirers at the top.
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _likesReceived = list;
     notifyListeners();
   }
 

@@ -2,7 +2,9 @@ import 'dart:io';
 import 'package:dropdown_flutter/custom_dropdown.dart';
 import '../../core/theme/dropdown_styles.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -77,9 +79,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
     setState(() => _saving = true);
 
     final user = context.read<AuthProvider>().currentUser!;
-    final value = _valueCtrl.text.trim().isEmpty
-        ? null
-        : double.tryParse(_valueCtrl.text.trim());
+    final digits = _valueCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final value = digits.isEmpty ? null : double.tryParse(digits);
 
     // Fallback to a generated placeholder if none picked, so the card always
     // renders. Swap for a real image upload when a backend is added.
@@ -184,6 +185,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
             TextFormField(
               controller: _valueCtrl,
               keyboardType: TextInputType.number,
+              inputFormatters: [_ThousandsInputFormatter()],
               decoration: const InputDecoration(
                 hintText: 'Helps gauge a fair swap',
                 prefixText: '₦ ',
@@ -295,6 +297,24 @@ class _Label extends StatelessWidget {
           color: AppColors.textPrimary,
         ),
       ),
+    );
+  }
+}
+
+/// Restricts input to digits and formats them with thousands separators as the
+/// user types (e.g. 5000 → 5,000), so the estimated value reads as an amount.
+class _ThousandsInputFormatter extends TextInputFormatter {
+  final NumberFormat _fmt = NumberFormat('#,###');
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return const TextEditingValue(text: '');
+    final formatted = _fmt.format(int.parse(digits));
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

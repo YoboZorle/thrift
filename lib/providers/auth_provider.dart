@@ -230,8 +230,8 @@ class AuthProvider extends ChangeNotifier {
         category: cat,
         condition: cond,
         images: [
-          'https://loremflickr.com/800/1000/$kw?lock=${lock++}',
-          'https://loremflickr.com/800/1000/$kw?lock=${lock++}',
+          'https://picsum.photos/seed/ts${lock++}/800/1000',
+          'https://picsum.photos/seed/ts${lock++}/800/1000',
         ],
         estimatedValue: value,
         city: user.city,

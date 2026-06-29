@@ -30,6 +30,7 @@ class ItemImage extends StatelessWidget {
         fit: fit,
         width: width,
         height: height,
+        gaplessPlayback: true,
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;
           return _loading();

@@ -115,19 +115,22 @@ class _ChatTile extends StatelessWidget {
           onTap: other == null
               ? null
               : () {
-                  context
-                      .read<SwipeMatchProvider>()
-                      .markSeen(match.id, userId);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ChatScreen(
-                        match: match,
-                        otherUser: other,
-                        myItem: myItem,
-                        theirItem: theirItem,
-                      ),
-                    ),
-                  );
+                  final sm = context.read<SwipeMatchProvider>();
+                  sm.markSeen(match.id, userId);
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) => ChatScreen(
+                            match: match,
+                            otherUser: other,
+                            myItem: myItem,
+                            theirItem: theirItem,
+                          ),
+                        ),
+                      )
+                      // Re-sort so the thread you just messaged in jumps to the
+                      // top when you come back.
+                      .then((_) => sm.refreshMatches(userId));
                 },
         );
       },
