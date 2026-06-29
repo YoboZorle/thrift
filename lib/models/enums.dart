@@ -95,3 +95,16 @@ extension SwipeDirectionX on SwipeDirection {
         orElse: () => SwipeDirection.pass,
       );
 }
+
+/// Manual identity-verification state for a user.
+enum VerificationStatus { unverified, verified, rejected }
+
+extension VerificationStatusX on VerificationStatus {
+  bool get isVerified => this == VerificationStatus.verified;
+
+  static VerificationStatus fromName(String? name) =>
+      VerificationStatus.values.firstWhere(
+        (s) => s.name == name,
+        orElse: () => VerificationStatus.unverified,
+      );
+}

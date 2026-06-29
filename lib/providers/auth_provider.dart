@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/constants/app_config.dart';
 import '../core/constants/app_constants.dart';
 import '../models/enums.dart';
 import '../models/item_model.dart';
@@ -50,8 +51,56 @@ class AuthProvider extends ChangeNotifier {
     return u.name.trim().isEmpty ||
         u.gender == null ||
         u.dob == null ||
-        u.city.trim().isEmpty ||
-        (u.avatarUrl == null || u.avatarUrl!.trim().isEmpty);
+        u.city.trim().isEmpty;
+  }
+
+  /// After the profile is set, the user must pass identity verification before
+  /// entering the app. Anything other than `verified` keeps them in the flow.
+  bool get needsVerification {
+    final u = _currentUser;
+    if (!isAuthenticated || u == null) return false;
+    if (needsProfileSetup) return false;
+    return u.verificationStatus != VerificationStatus.verified;
+  }
+
+  VerificationStatus get verificationStatus =>
+      _currentUser?.verificationStatus ?? VerificationStatus.unverified;
+
+  /// Submit selfies + an ID document for (manual) verification. Returns true if
+  /// approved. With no backend, [AppConfig.verificationAutoApprove] stands in
+  /// for the reviewer's decision.
+  Future<bool> submitVerification({
+    required List<String> photos,
+    required String idType,
+    required String idImage,
+  }) async {
+    final u = _currentUser;
+    if (u == null) return false;
+    final approved = AppConfig.verificationAutoApprove;
+    final updated = u.copyWith(
+      verificationPhotos: photos,
+      idType: idType,
+      idImage: idImage,
+      // The first verification selfie becomes the profile picture, so we don't
+      // ask for a separate avatar during setup.
+      avatarUrl: photos.isNotEmpty ? photos.first : u.avatarUrl,
+      verificationStatus:
+          approved ? VerificationStatus.verified : VerificationStatus.rejected,
+    );
+    await _repo.upsertUser(updated);
+    _currentUser = updated;
+    notifyListeners();
+    return approved;
+  }
+
+  /// Clear a rejection so the user can retry the verification flow.
+  Future<void> resetVerification() async {
+    final u = _currentUser;
+    if (u == null) return;
+    final updated = u.copyWith(verificationStatus: VerificationStatus.unverified);
+    await _repo.upsertUser(updated);
+    _currentUser = updated;
+    notifyListeners();
   }
 
   bool get codeSent => _phoneHandle != null;

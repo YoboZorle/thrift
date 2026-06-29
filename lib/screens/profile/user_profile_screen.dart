@@ -179,9 +179,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(u.name,
-                            style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.w800)),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(u.name,
+                                  style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800)),
+                            ),
+                            if (u.verificationStatus.isVerified) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.verified_rounded,
+                                  size: 18, color: AppColors.primary),
+                            ],
+                          ],
+                        ),
                         if (detail.isNotEmpty)
                           Text(detail,
                               style: const TextStyle(

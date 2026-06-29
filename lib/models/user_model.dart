@@ -1,3 +1,5 @@
+import 'enums.dart';
+
 class UserModel {
   final String id;
   final String name;
@@ -12,6 +14,12 @@ class UserModel {
   final DateTime? dob;
   final DateTime createdAt;
 
+  // Manual identity verification.
+  final VerificationStatus verificationStatus;
+  final List<String> verificationPhotos; // selfies the user uploaded
+  final String? idType; // e.g. "NIN card", "Driver's license"
+  final String? idImage; // the uploaded ID document
+
   const UserModel({
     required this.id,
     required this.name,
@@ -25,6 +33,10 @@ class UserModel {
     this.gender,
     this.dob,
     required this.createdAt,
+    this.verificationStatus = VerificationStatus.unverified,
+    this.verificationPhotos = const [],
+    this.idType,
+    this.idImage,
   });
 
   UserModel copyWith({
@@ -38,6 +50,10 @@ class UserModel {
     String? email,
     String? gender,
     DateTime? dob,
+    VerificationStatus? verificationStatus,
+    List<String>? verificationPhotos,
+    String? idType,
+    String? idImage,
   }) {
     return UserModel(
       id: id,
@@ -52,6 +68,10 @@ class UserModel {
       gender: gender ?? this.gender,
       dob: dob ?? this.dob,
       createdAt: createdAt,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
+      verificationPhotos: verificationPhotos ?? this.verificationPhotos,
+      idType: idType ?? this.idType,
+      idImage: idImage ?? this.idImage,
     );
   }
 
@@ -68,6 +88,10 @@ class UserModel {
         'gender': gender,
         'dob': dob?.toIso8601String(),
         'createdAt': createdAt.toIso8601String(),
+        'verificationStatus': verificationStatus.name,
+        'verificationPhotos': verificationPhotos,
+        'idType': idType,
+        'idImage': idImage,
       };
 
   factory UserModel.fromMap(Map<String, dynamic> map) => UserModel(
@@ -83,5 +107,11 @@ class UserModel {
         gender: map['gender'] as String?,
         dob: map['dob'] == null ? null : DateTime.tryParse(map['dob'] as String),
         createdAt: DateTime.parse(map['createdAt'] as String),
+        verificationStatus:
+            VerificationStatusX.fromName(map['verificationStatus'] as String?),
+        verificationPhotos:
+            ((map['verificationPhotos'] ?? const []) as List).cast<String>(),
+        idType: map['idType'] as String?,
+        idImage: map['idImage'] as String?,
       );
 }

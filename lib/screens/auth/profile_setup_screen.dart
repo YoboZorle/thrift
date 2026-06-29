@@ -1,14 +1,12 @@
 import 'package:dropdown_flutter/custom_dropdown.dart';
 import '../../core/theme/dropdown_styles.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/ng_states.dart';
 import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/common_widgets.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -20,7 +18,6 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _nameCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
-  String? _avatarPath;
   String? _gender;
   String? _state;
   DateTime? _dob;
@@ -35,7 +32,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     if (user != null) {
       if (user.name.isNotEmpty) _nameCtrl.text = user.name;
       _cityCtrl.text = user.city;
-      _avatarPath = user.avatarUrl;
       _gender = user.gender;
       _state = user.state.isEmpty ? null : user.state;
       _dob = user.dob;
@@ -47,16 +43,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     _nameCtrl.dispose();
     _cityCtrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickPhoto() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 800,
-      imageQuality: 85,
-    );
-    if (picked != null) setState(() => _avatarPath = picked.path);
   }
 
   Future<void> _pickDob() async {
@@ -84,9 +70,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   String? _validate() {
-    if (_avatarPath == null || _avatarPath!.isEmpty) {
-      return 'Please add a profile picture.';
-    }
     if (_nameCtrl.text.trim().isEmpty) return 'Please add your name.';
     if (_gender == null) return 'Please select your gender.';
     if (_dob == null) return 'Please select your date of birth.';
@@ -110,7 +93,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           state: _state!,
           gender: _gender!,
           dob: _dob!,
-          avatarUrl: _avatarPath,
         );
     // RootRouter advances automatically once setup is complete.
   }
@@ -127,51 +109,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
           children: [
-            Center(
-              child: GestureDetector(
-                onTap: _pickPhoto,
-                child: Stack(
-                  children: [
-                    Container(
-                      width: 112,
-                      height: 112,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.surfaceAlt,
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: _avatarPath != null
-                          ? ItemImage(source: _avatarPath!)
-                          : const Icon(Icons.person,
-                              size: 56, color: AppColors.textHint),
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.camera_alt_rounded,
-                            size: 18, color: Colors.black),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Center(
+            const Padding(
+              padding: EdgeInsets.only(bottom: 18),
               child: Text(
-                _avatarPath == null ? 'Add a profile photo (required)' : 'Tap to change photo',
-                style: const TextStyle(
-                    color: AppColors.textHint, fontSize: 12.5),
+                "Tell us about yourself. You'll add photos of yourself in the "
+                'next step (verification) — your first photo becomes your '
+                'profile picture.',
+                style: TextStyle(
+                    color: AppColors.textSecondary, fontSize: 13.5, height: 1.4),
               ),
             ),
-            const SizedBox(height: 20),
             _label('Display name'),
             TextField(
               controller: _nameCtrl,

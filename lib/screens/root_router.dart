@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import 'auth/profile_setup_screen.dart';
+import 'auth/verification_screen.dart';
 import 'home/home_shell.dart';
 import 'onboarding/welcome_screen.dart';
 import 'permissions/permission_gate_screen.dart';
@@ -63,6 +64,9 @@ class _RootRouterState extends State<RootRouter> with WidgetsBindingObserver {
     }
 
     if (auth.needsProfileSetup) return const ProfileSetupScreen();
+
+    // Compulsory manual identity verification before entering the app.
+    if (auth.needsVerification) return const VerificationScreen();
 
     // Compulsory permission gates — notifications first, then location.
     final perm = context.watch<PermissionProvider>();

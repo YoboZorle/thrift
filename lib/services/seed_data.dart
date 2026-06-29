@@ -41,6 +41,7 @@ class SeedData {
         gender: gender,
         dob: DateTime(now.year - age, 4, 12),
         avatarUrl: _avatar(gender, avatar),
+        verificationStatus: VerificationStatus.verified,
         createdAt: now,
       );
     }

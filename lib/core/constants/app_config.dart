@@ -23,4 +23,14 @@ class AppConfig {
   /// e.g. Nigeria: 2348012345678
   static const String adminWhatsAppNumber = '2348000000000';
   static const String supportName = 'ThriftSwap Support';
+
+  /// Minimum selfies a user must upload for identity verification.
+  static const int minVerificationPhotos = 3;
+
+  /// Verification is reviewed manually. With no backend/admin in this build,
+  /// this flag stands in for the reviewer's decision: `true` approves on
+  /// submit (walk the happy path), `false` rejects (see the rejection screen +
+  /// retry / contact-support flow). Replace with a real review when a backend
+  /// is added.
+  static const bool verificationAutoApprove = true;
 }
