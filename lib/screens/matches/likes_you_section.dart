@@ -13,6 +13,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/swipe_match_provider.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/countdown_text.dart';
+import '../swipe/swipe_item_detail_screen.dart';
 import 'match_detail_screen.dart';
 
 /// "Likes You" inbox — people who've liked one of YOUR items. Swap back (like
@@ -110,6 +111,43 @@ class _LikeTileState extends State<_LikeTile> {
     if (!mounted) return;
     final userId = context.read<AuthProvider>().currentUser!.id;
     context.read<SwipeMatchProvider>().loadLikesReceived(userId);
+  }
+
+  /// Preview one of their items full-screen and decide right there — liking it
+  /// completes the match (they already liked yours); passing records a pass.
+  Future<void> _previewItem(ItemModel item, UserModel? owner) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final messenger = ScaffoldMessenger.of(context);
+    final swipeMatch = context.read<SwipeMatchProvider>();
+    final userId = context.read<AuthProvider>().currentUser!.id;
+
+    final decision = await navigator.push<SwipeDecision>(
+      MaterialPageRoute(
+        builder: (_) => SwipeItemDetailScreen(item: item, owner: owner),
+      ),
+    );
+    if (decision == null || decision == SwipeDecision.none) return;
+
+    if (decision == SwipeDecision.save) {
+      await swipeMatch.toggleSave(userId, item.id);
+      messenger.showSnackBar(
+        SnackBar(content: Text('Saved "${item.title}"')),
+      );
+      return;
+    }
+
+    final dir = decision == SwipeDecision.like
+        ? SwipeDirection.like
+        : SwipeDirection.pass;
+    final match =
+        await swipeMatch.swipe(userId: userId, target: item, direction: dir);
+    if (match != null) {
+      _showMatch(navigator, match);
+    } else {
+      messenger.showSnackBar(
+        SnackBar(content: Text(dir == SwipeDirection.like ? 'Liked' : 'Passed')),
+      );
+    }
   }
 
   @override
@@ -214,7 +252,7 @@ class _LikeTileState extends State<_LikeTile> {
               if (theirItems.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
-                  'Swap for one of their items',
+                  'Tap an item to preview, then swap or pass',
                   style: const TextStyle(
                       color: AppColors.textSecondary, fontSize: 12.5),
                 ),
@@ -225,12 +263,34 @@ class _LikeTileState extends State<_LikeTile> {
                     scrollDirection: Axis.horizontal,
                     itemCount: theirItems.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (_, i) => ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: SizedBox(
-                        width: 76,
-                        height: 76,
-                        child: ItemImage(source: theirItems[i].primaryImage),
+                    itemBuilder: (_, i) => GestureDetector(
+                      onTap: () => _previewItem(theirItems[i], them),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: SizedBox(
+                          width: 76,
+                          height: 76,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              ItemImage(source: theirItems[i].primaryImage),
+                              Positioned(
+                                right: 4,
+                                bottom: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        Colors.black.withValues(alpha: 0.55),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Icon(Icons.zoom_in,
+                                      size: 13, color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),

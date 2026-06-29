@@ -58,11 +58,22 @@ class _MatchesScreenState extends State<MatchesScreen>
               MaterialPageRoute(builder: (_) => const MyListingsScreen()),
             ),
           ),
-          IconButton(
-            tooltip: 'List an item',
-            icon: const Icon(Icons.add_rounded),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AddItemScreen()),
+          Padding(
+            padding: const EdgeInsets.only(right: 10, left: 4),
+            child: ElevatedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AddItemScreen()),
+              ),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('List item'),
+              style: ElevatedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                textStyle: const TextStyle(
+                    fontSize: 13.5, fontWeight: FontWeight.w700),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
           ),
         ],

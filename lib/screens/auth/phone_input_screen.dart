@@ -15,7 +15,7 @@ class PhoneInputScreen extends StatefulWidget {
 
 class _PhoneInputScreenState extends State<PhoneInputScreen> {
   final _controller = TextEditingController();
-  String _dialCode = '+1';
+  String _dialCode = '+234';
 
   @override
   void dispose() {
@@ -23,11 +23,27 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
     super.dispose();
   }
 
+  /// Normalises the entered number to its national significant digits, or null
+  /// if it isn't valid for the selected country. Drops a local trunk '0' (e.g.
+  /// 0803… → 803…) which Nigerians commonly type.
+  String? _normalized() {
+    var raw = _controller.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+    if (raw.startsWith('0')) raw = raw.replaceFirst(RegExp(r'^0+'), '');
+    if (_dialCode == '+234') {
+      return raw.length == 10 ? raw : null; // NG national numbers are 10 digits
+    }
+    return (raw.length >= 7 && raw.length <= 14) ? raw : null;
+  }
+
   Future<void> _submit() async {
-    final raw = _controller.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
-    if (raw.length < 6) {
+    final raw = _normalized();
+    if (raw == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid phone number.')),
+        SnackBar(
+          content: Text(_dialCode == '+234'
+              ? 'Enter a valid Nigerian number — 10 digits after +234 (e.g. 803 123 4567).'
+              : 'Enter a valid phone number.'),
+        ),
       );
       return;
     }
@@ -88,8 +104,11 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
                       ],
-                      decoration: const InputDecoration(
-                        hintText: '555 123 4567',
+                      maxLength: 15,
+                      decoration: InputDecoration(
+                        counterText: '',
+                        hintText:
+                            _dialCode == '+234' ? '803 123 4567' : '555 123 4567',
                       ),
                     ),
                   ),
@@ -146,7 +165,7 @@ class _DialCodePicker extends StatelessWidget {
   final String value;
   final ValueChanged<String> onChanged;
 
-  static const _codes = ['+1', '+44', '+234', '+91', '+27', '+254', '+233'];
+  static const _codes = ['+234', '+1', '+44', '+91', '+27', '+254', '+233'];
 
   @override
   Widget build(BuildContext context) {

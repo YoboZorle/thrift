@@ -46,8 +46,10 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final swipeMatch = context.watch<SwipeMatchProvider>();
-    // New admirers waiting → Matches tab; unread (unopened) chats → Chats tab.
-    final likesBadge = swipeMatch.likesYouCount;
+    // Matches tab: new admirers waiting + matches not yet opened (followed up).
+    // Chats tab: unread (unopened) conversations.
+    final likesBadge =
+        swipeMatch.likesYouCount + swipeMatch.unseenMatchCount;
     final chatBadge = swipeMatch.unseenMatchCount;
 
     return Scaffold(

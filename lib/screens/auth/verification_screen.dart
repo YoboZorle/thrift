@@ -41,9 +41,32 @@ class _VerificationScreenState extends State<VerificationScreen> {
   @override
   void initState() {
     super.initState();
-    // Land straight on the rejection screen if a prior attempt was rejected.
-    final status = context.read<AuthProvider>().verificationStatus;
-    _step = status == VerificationStatus.rejected ? _VStep.rejected : _VStep.photos;
+    final auth = context.read<AuthProvider>();
+    final u = auth.currentUser;
+    // Restore any half-finished verification so the user resumes where they
+    // stopped.
+    if (u != null) {
+      _photos.addAll(u.verificationPhotos);
+      _idType = u.idType;
+      _idImage = u.idImage;
+    }
+    final status = auth.verificationStatus;
+    if (status == VerificationStatus.rejected) {
+      _step = _VStep.rejected;
+    } else if (_photos.length >= AppConfig.minVerificationPhotos &&
+        (_idType != null || _idImage != null)) {
+      _step = _VStep.id;
+    } else {
+      _step = _VStep.photos;
+    }
+  }
+
+  void _saveDraft() {
+    context.read<AuthProvider>().saveVerificationDraft(
+          photos: List<String>.from(_photos),
+          idType: _idType,
+          idImage: _idImage,
+        );
   }
 
   Future<void> _addPhotos() async {
@@ -51,6 +74,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       final picked = await _picker.pickMultiImage(imageQuality: 70);
       if (picked.isNotEmpty) {
         setState(() => _photos.addAll(picked.map((x) => x.path)));
+        _saveDraft();
       }
     } catch (_) {}
   }
@@ -59,7 +83,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
     try {
       final picked =
           await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-      if (picked != null) setState(() => _idImage = picked.path);
+      if (picked != null) {
+        setState(() => _idImage = picked.path);
+        _saveDraft();
+      }
     } catch (_) {}
   }
 
@@ -169,7 +196,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   for (int i = 0; i < _photos.length; i++)
                     _thumb(
                       _photos[i],
-                      onRemove: () => setState(() => _photos.removeAt(i)),
+                      onRemove: () {
+                        setState(() => _photos.removeAt(i));
+                        _saveDraft();
+                      },
                     ),
                   _addTile(_addPhotos),
                 ],
@@ -219,7 +249,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 hintText: 'Select your ID',
                 items: _idTypes,
                 initialItem: _idType,
-                onChanged: (v) => setState(() => _idType = v),
+                onChanged: (v) {
+                  setState(() => _idType = v);
+                  _saveDraft();
+                },
               ),
               const SizedBox(height: 20),
               const Text('ID photo',

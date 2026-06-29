@@ -14,6 +14,7 @@ class OtpScreen extends StatefulWidget {
 
 class _OtpScreenState extends State<OtpScreen> {
   final _controller = TextEditingController();
+  String _code = '';
 
   @override
   void dispose() {
@@ -23,11 +24,14 @@ class _OtpScreenState extends State<OtpScreen> {
 
   Future<void> _verify() async {
     final code = _controller.text.trim();
-    if (code.length < 6) return;
+    if (code.length != 6) return;
     final auth = context.read<AuthProvider>();
     final ok = await auth.confirmCode(code);
     if (!mounted) return;
     if (!ok) {
+      // Clear so they can retype; the error shows inline + as a snackbar.
+      _controller.clear();
+      setState(() => _code = '');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(auth.otpError ?? 'Invalid code.')),
       );
@@ -82,9 +86,17 @@ class _OtpScreenState extends State<OtpScreen> {
                   hintText: '— — — — — —',
                 ),
                 onChanged: (v) {
+                  setState(() => _code = v);
                   if (v.length == 6) _verify();
                 },
               ),
+              if (auth.otpError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  auth.otpError!,
+                  style: const TextStyle(color: AppColors.nope, fontSize: 13),
+                ),
+              ],
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerLeft,
@@ -109,7 +121,8 @@ class _OtpScreenState extends State<OtpScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: auth.verifyingCode ? null : _verify,
+                  onPressed:
+                      (auth.verifyingCode || _code.length != 6) ? null : _verify,
                   child: auth.verifyingCode
                       ? const SizedBox(
                           width: 22,

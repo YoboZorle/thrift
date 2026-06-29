@@ -56,7 +56,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       lastDate: eighteen,
       helpText: 'Select your date of birth (18+)',
     );
-    if (picked != null) setState(() => _dob = picked);
+    if (picked != null) {
+      setState(() => _dob = picked);
+      _saveDraft();
+    }
   }
 
   bool _isAtLeast18(DateTime dob) {
@@ -67,6 +70,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       age--;
     }
     return age >= 18;
+  }
+
+  void _saveDraft() {
+    context.read<AuthProvider>().saveProfileDraft(
+          name: _nameCtrl.text.trim(),
+          city: _cityCtrl.text.trim(),
+          state: _state,
+          gender: _gender,
+          dob: _dob,
+        );
   }
 
   String? _validate() {
@@ -123,6 +136,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             TextField(
               controller: _nameCtrl,
               textCapitalization: TextCapitalization.words,
+              onChanged: (_) => _saveDraft(),
               decoration: const InputDecoration(hintText: 'e.g. Alex'),
             ),
             const SizedBox(height: 18),
@@ -132,7 +146,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               hintText: 'Select gender',
               items: _genders,
               initialItem: _gender,
-              onChanged: (value) => setState(() => _gender = value),
+              onChanged: (value) {
+                setState(() => _gender = value);
+                _saveDraft();
+              },
             ),
             const SizedBox(height: 18),
             _label('Date of birth'),
@@ -174,13 +191,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               hintText: 'Select state',
               items: nigerianStates,
               initialItem: _state,
-              onChanged: (value) => setState(() => _state = value),
+              onChanged: (value) {
+                setState(() => _state = value);
+                _saveDraft();
+              },
             ),
             const SizedBox(height: 18),
             _label('City'),
             TextField(
               controller: _cityCtrl,
               textCapitalization: TextCapitalization.words,
+              onChanged: (_) => _saveDraft(),
               decoration: const InputDecoration(hintText: 'e.g. Lekki'),
             ),
             const SizedBox(height: 28),

@@ -48,10 +48,49 @@ class AuthProvider extends ChangeNotifier {
   bool get needsProfileSetup {
     final u = _currentUser;
     if (!isAuthenticated || u == null) return false;
-    return u.name.trim().isEmpty ||
-        u.gender == null ||
-        u.dob == null ||
-        u.city.trim().isEmpty;
+    return !u.profileComplete;
+  }
+
+  /// Silently persist a partial profile as the user fills it in, so a half-done
+  /// registration is restored next time (without advancing past setup — that
+  /// only happens via [completeProfileSetup]).
+  Future<void> saveProfileDraft({
+    String? name,
+    String? city,
+    String? state,
+    String? gender,
+    DateTime? dob,
+  }) async {
+    final u = _currentUser;
+    if (u == null || u.profileComplete) return;
+    final updated = u.copyWith(
+      name: name,
+      city: city,
+      state: state,
+      gender: gender,
+      dob: dob,
+    );
+    _currentUser = updated;
+    await _repo.upsertUser(updated); // persisted, but no notify → no rebuilds
+  }
+
+  /// Silently persist verification progress (uploaded selfies + ID) so a
+  /// half-done verification resumes where the user left off. Status is left
+  /// untouched, so this never advances the gate.
+  Future<void> saveVerificationDraft({
+    required List<String> photos,
+    String? idType,
+    String? idImage,
+  }) async {
+    final u = _currentUser;
+    if (u == null) return;
+    final updated = u.copyWith(
+      verificationPhotos: photos,
+      idType: idType,
+      idImage: idImage,
+    );
+    _currentUser = updated;
+    await _repo.upsertUser(updated);
   }
 
   /// After the profile is set, the user must pass identity verification before
@@ -252,6 +291,7 @@ class AuthProvider extends ChangeNotifier {
       dob: dob,
       bio: bio,
       avatarUrl: avatarUrl,
+      profileComplete: true,
     );
     await _repo.upsertUser(updated);
     _currentUser = updated;

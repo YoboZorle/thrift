@@ -198,7 +198,9 @@ class _SwipeCardState extends State<SwipeCard> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    runSpacing: 4,
                     children: [
                       if (item.estimatedValue != null) ...[
                         _meta('≈ ${Formatters.money(item.estimatedValue!)}'),

@@ -14,6 +14,10 @@ class UserModel {
   final DateTime? dob;
   final DateTime createdAt;
 
+  /// True once the user has explicitly finished profile setup (lets us persist
+  /// partial drafts without prematurely advancing past the setup screen).
+  final bool profileComplete;
+
   // Manual identity verification.
   final VerificationStatus verificationStatus;
   final List<String> verificationPhotos; // selfies the user uploaded
@@ -33,6 +37,7 @@ class UserModel {
     this.gender,
     this.dob,
     required this.createdAt,
+    this.profileComplete = false,
     this.verificationStatus = VerificationStatus.unverified,
     this.verificationPhotos = const [],
     this.idType,
@@ -50,6 +55,7 @@ class UserModel {
     String? email,
     String? gender,
     DateTime? dob,
+    bool? profileComplete,
     VerificationStatus? verificationStatus,
     List<String>? verificationPhotos,
     String? idType,
@@ -68,6 +74,7 @@ class UserModel {
       gender: gender ?? this.gender,
       dob: dob ?? this.dob,
       createdAt: createdAt,
+      profileComplete: profileComplete ?? this.profileComplete,
       verificationStatus: verificationStatus ?? this.verificationStatus,
       verificationPhotos: verificationPhotos ?? this.verificationPhotos,
       idType: idType ?? this.idType,
@@ -88,6 +95,7 @@ class UserModel {
         'gender': gender,
         'dob': dob?.toIso8601String(),
         'createdAt': createdAt.toIso8601String(),
+        'profileComplete': profileComplete,
         'verificationStatus': verificationStatus.name,
         'verificationPhotos': verificationPhotos,
         'idType': idType,
@@ -107,6 +115,11 @@ class UserModel {
         gender: map['gender'] as String?,
         dob: map['dob'] == null ? null : DateTime.tryParse(map['dob'] as String),
         createdAt: DateTime.parse(map['createdAt'] as String),
+        profileComplete: (map['profileComplete'] as bool?) ??
+            ((map['name'] ?? '').toString().trim().isNotEmpty &&
+                map['gender'] != null &&
+                map['dob'] != null &&
+                (map['city'] ?? '').toString().trim().isNotEmpty),
         verificationStatus:
             VerificationStatusX.fromName(map['verificationStatus'] as String?),
         verificationPhotos:
