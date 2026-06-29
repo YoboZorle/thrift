@@ -46,13 +46,16 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final swipeMatch = context.watch<SwipeMatchProvider>();
-    final pendingBadge = swipeMatch.likesYouCount + swipeMatch.unseenMatchCount;
+    // New admirers waiting → Matches tab; unread (unopened) chats → Chats tab.
+    final likesBadge = swipeMatch.likesYouCount;
+    final chatBadge = swipeMatch.unseenMatchCount;
 
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: _BumbleNav(
         index: _index,
-        badge: pendingBadge,
+        likesBadge: likesBadge,
+        chatBadge: chatBadge,
         onTap: (i) {
           setState(() => _index = i);
           final userId = context.read<AuthProvider>().currentUser?.id;
@@ -69,12 +72,14 @@ class _BumbleNav extends StatelessWidget {
   const _BumbleNav({
     required this.index,
     required this.onTap,
-    required this.badge,
+    required this.likesBadge,
+    required this.chatBadge,
   });
 
   final int index;
   final ValueChanged<int> onTap;
-  final int badge;
+  final int likesBadge;
+  final int chatBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -92,8 +97,9 @@ class _BumbleNav extends StatelessWidget {
               _item(0, Icons.home_rounded, Icons.home_outlined),
               _item(1, Icons.explore_rounded, Icons.explore_outlined),
               _item(2, Icons.swap_horiz_rounded, Icons.swap_horiz_rounded,
-                  badge: badge),
-              _item(3, Icons.chat_bubble_rounded, Icons.chat_bubble_outline),
+                  badge: likesBadge),
+              _item(3, Icons.chat_bubble_rounded, Icons.chat_bubble_outline,
+                  badge: chatBadge),
               _item(4, Icons.person_rounded, Icons.person_outline),
             ],
           ),

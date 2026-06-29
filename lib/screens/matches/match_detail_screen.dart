@@ -31,8 +31,9 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     super.initState();
     final swipeMatch = context.read<SwipeMatchProvider>();
     final userId = context.read<AuthProvider>().currentUser!.id;
-    // Opening the detail counts as seeing the match.
-    swipeMatch.markSeen(widget.match.id, userId);
+    // Note: we DON'T mark the chat seen here — reviewing the swap isn't the
+    // same as reading the conversation. The unread count clears only when the
+    // chat itself is opened.
     _future = Future.wait([
       swipeMatch.item(widget.match.myItemId(userId)),
       swipeMatch.item(widget.match.theirItemId(userId)),

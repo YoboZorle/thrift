@@ -144,7 +144,6 @@ class _MatchTile extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () {
-              swipeMatch.markSeen(match.id, userId);
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => MatchDetailScreen(match: match),

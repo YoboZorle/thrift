@@ -11,6 +11,7 @@ import '../../models/message_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/swipe_match_provider.dart';
 import '../../widgets/common_widgets.dart';
 import '../profile/user_profile_screen.dart';
 
@@ -42,6 +43,13 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChatProvider>().open(widget.match.id).then((_) => _toBottom());
+      // Opening the actual conversation clears its unread state.
+      final userId = context.read<AuthProvider>().currentUser?.id;
+      if (userId != null) {
+        context
+            .read<SwipeMatchProvider>()
+            .markSeen(widget.match.id, userId);
+      }
     });
   }
 

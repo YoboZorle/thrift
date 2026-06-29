@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../models/enums.dart';
 import '../models/item_model.dart';
 import '../models/match_model.dart';
+import '../models/message_model.dart';
 import '../models/swipe_model.dart';
 import '../models/user_model.dart';
 import '../services/data_repository.dart';
@@ -50,6 +51,12 @@ class SwipeMatchProvider extends ChangeNotifier {
   // ---- Lookup helpers shared with the UI ----
   Future<ItemModel?> item(String id) => _repo.getItem(id);
   Future<UserModel?> user(String id) => _repo.getUser(id);
+
+  /// Most recent message in a thread (for the chat-list preview), or null.
+  Future<MessageModel?> lastMessage(String matchId) async {
+    final msgs = await _repo.getMessages(matchId);
+    return msgs.isEmpty ? null : msgs.last;
+  }
   Future<List<ItemModel>> itemsOf(String userId) =>
       _repo.getItemsByOwner(userId);
 

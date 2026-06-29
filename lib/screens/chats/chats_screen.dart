@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/item_model.dart';
 import '../../models/match_model.dart';
+import '../../models/message_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/swipe_match_provider.dart';
@@ -54,6 +56,13 @@ class _ChatTile extends StatelessWidget {
   final MatchModel match;
   final String userId;
 
+  String _previewText(MessageModel? last, String userId) {
+    if (last == null) return 'Tap to start chatting';
+    if (last.senderId == AppConstants.kSystemSenderId) return last.text;
+    if (last.senderId == userId) return 'You: ${last.text}';
+    return last.text;
+  }
+
   @override
   Widget build(BuildContext context) {
     final sm = context.read<SwipeMatchProvider>();
@@ -62,11 +71,16 @@ class _ChatTile extends StatelessWidget {
         sm.user(match.otherUserId(userId)),
         sm.item(match.myItemId(userId)),
         sm.item(match.theirItemId(userId)),
+        sm.lastMessage(match.id),
       ]),
       builder: (context, snap) {
         final other = snap.data?[0] as UserModel?;
         final myItem = snap.data?[1] as ItemModel?;
         final theirItem = snap.data?[2] as ItemModel?;
+        final last = snap.data?[3] as MessageModel?;
+
+        final unread = !match.seen;
+        final preview = _previewText(last, userId);
 
         return ListTile(
           contentPadding:
@@ -101,15 +115,16 @@ class _ChatTile extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w700),
           ),
           subtitle: Text(
-            theirItem != null
-                ? 'Swap: ${theirItem.title}'
-                : 'Tap to start chatting',
+            preview,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: AppColors.textSecondary),
+            style: TextStyle(
+              color: unread ? AppColors.textPrimary : AppColors.textSecondary,
+              fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
+            ),
           ),
           trailing: Text(
-            Formatters.timeAgo(match.lastActivity),
+            Formatters.timeAgo(last?.createdAt ?? match.lastActivity),
             style: const TextStyle(color: AppColors.textHint, fontSize: 11.5),
           ),
           onTap: other == null
