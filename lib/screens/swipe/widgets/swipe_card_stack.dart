@@ -40,6 +40,7 @@ class SwipeCardStack extends StatefulWidget {
     required this.cardBuilder,
     this.controller,
     this.onEmpty,
+    this.onPhotoTap,
   });
 
   final List<ItemModel> items;
@@ -47,6 +48,10 @@ class SwipeCardStack extends StatefulWidget {
   final SwipeCardBuilder cardBuilder;
   final SwipeCardController? controller;
   final VoidCallback? onEmpty;
+
+  /// Tap on the top card: `next` is true for the right half (next photo),
+  /// false for the left half (previous photo).
+  final void Function(ItemModel item, bool next)? onPhotoTap;
 
   @override
   State<SwipeCardStack> createState() => _SwipeCardStackState();
@@ -201,40 +206,98 @@ class _SwipeCardStackState extends State<SwipeCardStack>
     final nopeOpacity =
         (-_drag.dx / AppConstants.swipeThreshold).clamp(0.0, 1.0);
 
-    return GestureDetector(
-      onPanUpdate: _onPanUpdate,
-      onPanEnd: _onPanEnd,
-      child: Transform.translate(
-        offset: _drag,
-        child: Transform.rotate(
-          angle: rotation,
-          child: Stack(
-            children: [
-              widget.cardBuilder(context, item),
-              Positioned(
-                top: 28,
-                left: 22,
-                child: _StampLabel(
-                  text: 'SWAP',
-                  color: const Color(0xFF22C55E),
-                  opacity: likeOpacity,
-                  angle: -0.3,
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final h = constraints.maxHeight;
+        return GestureDetector(
+          onPanUpdate: _onPanUpdate,
+          onPanEnd: _onPanEnd,
+          child: Transform.translate(
+            offset: _drag,
+            child: Transform.rotate(
+              angle: rotation,
+              child: Stack(
+                children: [
+                  widget.cardBuilder(context, item),
+                  // Left/right tap to browse photos. A raw Listener (not a tap
+                  // recognizer) detects the tap, so it can NEVER lose the
+                  // gesture arena to the pan-to-swipe handler — the old tap was
+                  // being swallowed by the pan. Confined to the upper image
+                  // area so the info panel and expand chevron stay interactive.
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: h.isFinite ? h * 0.20 : 90,
+                    child: _PhotoTapZone(
+                      onTap: (isRight) =>
+                          widget.onPhotoTap?.call(item, isRight),
+                    ),
+                  ),
+                  Positioned(
+                    top: 28,
+                    left: 22,
+                    child: _StampLabel(
+                      text: 'SWAP',
+                      color: const Color(0xFF22C55E),
+                      opacity: likeOpacity,
+                      angle: -0.3,
+                    ),
+                  ),
+                  Positioned(
+                    top: 28,
+                    right: 22,
+                    child: _StampLabel(
+                      text: 'PASS',
+                      color: const Color(0xFFF43F5E),
+                      opacity: nopeOpacity,
+                      angle: 0.3,
+                    ),
+                  ),
+                ],
               ),
-              Positioned(
-                top: 28,
-                right: 22,
-                child: _StampLabel(
-                  text: 'PASS',
-                  color: const Color(0xFFF43F5E),
-                  opacity: nopeOpacity,
-                  angle: 0.3,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
+    );
+  }
+}
+
+/// A raw pointer tap detector for photo browsing. Because it uses [Listener]
+/// (not a gesture recognizer), it observes the tap directly and never competes
+/// in the gesture arena — so the swipe pan keeps working AND taps always land.
+/// A real drag (pointer moves past a small slop) is ignored as "not a tap".
+class _PhotoTapZone extends StatefulWidget {
+  const _PhotoTapZone({required this.onTap});
+  final void Function(bool isRight) onTap;
+
+  @override
+  State<_PhotoTapZone> createState() => _PhotoTapZoneState();
+}
+
+class _PhotoTapZoneState extends State<_PhotoTapZone> {
+  Offset? _down;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (e) => _down = e.localPosition,
+          onPointerUp: (e) {
+            final d = _down;
+            _down = null;
+            if (d == null) return;
+            // If the finger moved more than a small slop, it was a swipe.
+            if ((e.localPosition - d).distance > 14) return;
+            widget.onTap(e.localPosition.dx > w / 2);
+          },
+          child: const SizedBox.expand(),
+        );
+      },
     );
   }
 }

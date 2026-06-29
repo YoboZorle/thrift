@@ -1,36 +1,28 @@
+import '../core/constants/app_config.dart';
 import '../models/enums.dart';
 import '../models/item_model.dart';
 import '../models/user_model.dart';
 
-/// Seeds a community of other swappers + their items on first launch, so a
-/// freshly signed-in user has people and goods to discover and match with.
+/// Seeds a realistic community of Nigerian swappers + their items on first
+/// launch, so a freshly signed-in user has people and goods to discover and
+/// match with. Values are in Naira.
 ///
-/// The signed-in user is NOT seeded — they get a unique account tied to their
-/// auth identity, with their own items, matches and chats. Every seeded record
-/// here is unique (unique ids + unique, product-relevant images).
+/// The signed-in user is NOT seeded here — they get a unique account tied to
+/// their auth identity (plus a few starter listings, see AuthProvider). Every
+/// seeded record is unique (unique ids + unique, product-relevant images).
 class SeedData {
-  static const double _baseLat = 25.7617; // Miami-ish anchor
-  static const double _baseLng = -80.1918;
+  static const double _baseLat = 6.5244; // Lagos anchor
+  static const double _baseLng = 3.3792;
 
-  /// Product-relevant photo (keyworded, deterministic via `lock`) — not random.
   static String _photo(String keywords, int lock) =>
       'https://loremflickr.com/800/1000/$keywords?lock=$lock';
 
-  /// Real-photo avatar, deterministic by index.
   static String _avatar(int n) => 'https://i.pravatar.cc/400?img=$n';
 
   static List<UserModel> users() {
     final now = DateTime.now();
-    UserModel u(
-      String id,
-      String name,
-      String city,
-      String state,
-      String bio,
-      String gender,
-      int age,
-      int avatar,
-    ) {
+    UserModel u(String id, String name, String city, String state, String bio,
+        String gender, int age, int avatar) {
       return UserModel(
         id: id,
         name: name,
@@ -46,53 +38,65 @@ class SeedData {
     }
 
     return [
-      u('user_amara', 'Amara', 'Miami', 'Florida',
+      u('user_amara', 'Amara Okafor', 'Lagos', 'Lagos',
           'Sneakerhead. Swap me something fresh.', 'Female', 27, 5),
-      u('user_kunle', 'Kunle', 'Miami', 'Florida',
+      u('user_kunle', 'Kunle Adeyemi', 'Lagos', 'Lagos',
           'Books, gadgets and good vibes.', 'Male', 31, 12),
-      u('user_zara', 'Zara', 'Orlando', 'Florida',
-          'Thrift queen — vintage everything.', 'Female', 24, 9),
-      u('user_tobi', 'Tobi', 'Miami', 'Florida',
+      u('user_zainab', 'Zainab Bello', 'Abuja', 'FCT (Abuja)',
+          'Thrift lover — vintage everything.', 'Female', 24, 9),
+      u('user_tobi', 'Tobi Williams', 'Lagos', 'Lagos',
           'Minimalist swapping up my home stuff.', 'Male', 29, 14),
-      u('user_lola', 'Lola', 'Atlanta', 'Georgia',
-          'Closet refresh in progress. Open to trades!', 'Female', 26, 16),
-      u('user_diego', 'Diego', 'Miami', 'Florida',
+      u('user_ngozi', 'Ngozi Eze', 'Enugu', 'Enugu',
+          'Closet refresh in progress.', 'Female', 26, 16),
+      u('user_emeka', 'Emeka Nwosu', 'Lagos', 'Lagos',
           'Sports gear and tech. Let\'s deal.', 'Male', 33, 33),
-      u('user_mei', 'Mei', 'Tampa', 'Florida',
+      u('user_aisha', 'Aisha Mohammed', 'Kano', 'Kano',
           'Books, home & little treasures.', 'Female', 28, 20),
-      u('user_sam', 'Sam', 'Austin', 'Texas',
+      u('user_chidi', 'Chidi Obi', 'Port Harcourt', 'Rivers',
           'Outdoors and everyday carry swaps.', 'Male', 30, 52),
-      u('user_priya', 'Priya', 'Miami', 'Florida',
+      u('user_funke', 'Funke Alabi', 'Ibadan', 'Oyo',
           'Accessories & smart-casual pieces.', 'Female', 25, 25),
-      u('user_marcus', 'Marcus', 'Jacksonville', 'Florida',
+      u('user_musa', 'Musa Danjuma', 'Kaduna', 'Kaduna',
           'Tech tinkerer and runner.', 'Male', 34, 60),
-      u('user_nina', 'Nina', 'Atlanta', 'Georgia',
+      u('user_blessing', 'Blessing Edet', 'Benin City', 'Edo',
           'Cozy home goods and totes.', 'Female', 27, 45),
-      u('user_omar', 'Omar', 'Houston', 'Texas',
+      u('user_yusuf', 'Yusuf Sani', 'Abuja', 'FCT (Abuja)',
           'Books, board games, good trades.', 'Male', 32, 13),
+      u('user_chioma', 'Chioma Okeke', 'Lagos', 'Lagos',
+          'Beauty finds & accessories.', 'Female', 23, 31),
+      u('user_ibrahim', 'Ibrahim Lawal', 'Lagos', 'Lagos',
+          'Gadgets and audio gear.', 'Male', 35, 56),
+      u('user_folake', 'Folake Ogun', 'Lagos', 'Lagos',
+          'Shoes, dresses, and bags.', 'Female', 28, 47),
+      u('user_tunde', 'Tunde Bakare', 'Port Harcourt', 'Rivers',
+          'Fitness and electronics swaps.', 'Male', 31, 68),
     ];
   }
 
   static List<ItemModel> items() {
     final now = DateTime.now();
 
-    // Owner -> (city, state, dLat, dLng) so distances + location match line up.
+    // Owner -> (city, state, dLat, dLng) — rough offsets from the Lagos anchor.
     const place = <String, List<dynamic>>{
-      'user_amara': ['Miami', 'Florida', 0.012, 0.006],
-      'user_kunle': ['Miami', 'Florida', -0.018, 0.004],
-      'user_zara': ['Orlando', 'Florida', 1.6, 0.9],
-      'user_tobi': ['Miami', 'Florida', 0.03, 0.025],
-      'user_lola': ['Atlanta', 'Georgia', 6.0, 4.2],
-      'user_diego': ['Miami', 'Florida', -0.01, 0.02],
-      'user_mei': ['Tampa', 'Florida', 1.1, -1.3],
-      'user_sam': ['Austin', 'Texas', 4.2, -17.5],
-      'user_priya': ['Miami', 'Florida', -0.02, -0.01],
-      'user_marcus': ['Jacksonville', 'Florida', 3.0, 0.6],
-      'user_nina': ['Atlanta', 'Georgia', 6.1, 4.1],
-      'user_omar': ['Houston', 'Texas', 4.0, -15.0],
+      'user_amara': ['Lagos', 'Lagos', 0.012, 0.006],
+      'user_kunle': ['Lagos', 'Lagos', -0.018, 0.004],
+      'user_zainab': ['Abuja', 'FCT (Abuja)', 2.55, 4.11],
+      'user_tobi': ['Lagos', 'Lagos', 0.03, 0.025],
+      'user_ngozi': ['Enugu', 'Enugu', -0.07, 4.13],
+      'user_emeka': ['Lagos', 'Lagos', -0.01, 0.02],
+      'user_aisha': ['Kano', 'Kano', 5.48, 5.21],
+      'user_chidi': ['Port Harcourt', 'Rivers', -1.71, 3.67],
+      'user_funke': ['Ibadan', 'Oyo', 0.86, 0.57],
+      'user_musa': ['Kaduna', 'Kaduna', 4.0, 4.06],
+      'user_blessing': ['Benin City', 'Edo', -0.18, 2.24],
+      'user_yusuf': ['Abuja', 'FCT (Abuja)', 2.55, 4.11],
+      'user_chioma': ['Lagos', 'Lagos', 0.02, -0.01],
+      'user_ibrahim': ['Lagos', 'Lagos', -0.02, 0.012],
+      'user_folake': ['Lagos', 'Lagos', 0.008, 0.03],
+      'user_tunde': ['Port Harcourt', 'Rivers', -1.7, 3.66],
     };
 
-    var lockSeed = 100; // unique, deterministic image lock per photo
+    var lockSeed = 100;
 
     ItemModel make(
       String id,
@@ -105,9 +109,11 @@ class SeedData {
       int photoCount,
       double value, {
       Duration age = const Duration(days: 5),
+      String defect = '',
     }) {
       final p = place[owner]!;
-      final images = List.generate(photoCount, (_) => _photo(keywords, lockSeed++));
+      final images =
+          List.generate(photoCount, (_) => _photo(keywords, lockSeed++));
       return ItemModel(
         id: id,
         ownerId: owner,
@@ -121,153 +127,196 @@ class SeedData {
         longitude: _baseLng + (p[3] as double),
         city: p[0] as String,
         state: p[1] as String,
-        // Test window is short (5 min), so compress each item's relative age
-        // into seconds — older listings have less time left, but all start
-        // live. (With the production 48h window, use real ages instead.)
-        createdAt: now
-            .subtract(Duration(seconds: age.inHours.clamp(0, 240).toInt())),
+        defectNote: defect,
+        // Give every listing a realistic, DISTINCT amount of time left by
+        // mapping its age onto the live window proportionally (older listing →
+        // less time remaining), plus a small deterministic per-item offset so
+        // even items posted "around the same time" differ. Scales to both the
+        // 5-minute test window and the 48-hour production window, and stays live
+        // at seed time (portion capped below 1.0).
+        createdAt: now.subtract(AppConfig.listingWindow *
+            ((age.inMinutes / const Duration(days: 6).inMinutes) +
+                    (id.hashCode.abs() % 70) / 1000.0)
+                .clamp(0.03, 0.92)),
       );
     }
 
     return [
-      // ----- Amara (Miami) -----
-      make('item_amara_af1', 'user_amara', 'Nike Air Force 1 High',
-          'Crisp white AF1 highs, lightly worn. A grail swap.',
-          ItemCategory.shoes, ItemCondition.good, 'sneakers', 3, 190,
+      // Amara (Lagos)
+      make('item_amara_af1', 'user_amara', 'Nike Air Force 1',
+          'Crisp white AF1, lightly worn. A grail swap.', ItemCategory.shoes,
+          ItemCondition.good, 'sneakers', 3, 55000,
           age: const Duration(hours: 2)),
       make('item_amara_shirt', 'user_amara', 'Vintage Denim Shirt',
-          'Oversized 90s denim shirt. A vibe.',
-          ItemCategory.clothing, ItemCondition.good, 'denim,shirt', 2, 60,
+          'Oversized 90s denim shirt. A vibe.', ItemCategory.clothing,
+          ItemCondition.good, 'denim,shirt', 2, 12000,
           age: const Duration(days: 1)),
       make('item_amara_watch', 'user_amara', 'Classic Wristwatch',
-          'Silver analog watch, brand new battery.',
-          ItemCategory.accessories, ItemCondition.likeNew, 'wristwatch', 2, 80,
+          'Silver analog watch, new battery.', ItemCategory.accessories,
+          ItemCondition.likeNew, 'wristwatch', 2, 25000,
           age: const Duration(days: 3)),
 
-      // ----- Kunle (Miami) -----
+      // Kunle (Lagos)
       make('item_kunle_headphones', 'user_kunle', 'Wireless Headphones',
-          'Over-ear, noise cancelling. Great sound.',
-          ItemCategory.electronics, ItemCondition.likeNew, 'headphones', 2, 150,
+          'Over-ear, noise cancelling.', ItemCategory.electronics,
+          ItemCondition.likeNew, 'headphones', 2, 45000,
           age: const Duration(hours: 20)),
       make('item_kunle_books', 'user_kunle', 'Box of Novels',
-          '15 paperback novels, mixed genres.',
-          ItemCategory.books, ItemCondition.good, 'books', 2, 45,
-          age: const Duration(days: 4)),
+          '15 paperback novels, mixed genres.', ItemCategory.books,
+          ItemCondition.good, 'books', 2, 8000, age: const Duration(days: 4)),
 
-      // ----- Zara (Orlando) -----
-      make('item_zara_jacket', 'user_zara', 'Vintage Leather Jacket',
-          'Classic black biker jacket. Timeless.',
-          ItemCategory.clothing, ItemCondition.good, 'leather,jacket', 2, 130,
+      // Zainab (Abuja)
+      make('item_zainab_jacket', 'user_zainab', 'Leather Jacket',
+          'Classic black biker jacket.', ItemCategory.clothing,
+          ItemCondition.good, 'leather,jacket', 2, 38000,
           age: const Duration(hours: 9)),
-      make('item_zara_heels', 'user_zara', 'Designer Heels',
-          'Red block heels, worn twice. Size 39.',
-          ItemCategory.shoes, ItemCondition.likeNew, 'high,heels', 2, 95,
+      make('item_zainab_heels', 'user_zainab', 'Designer Heels',
+          'Red block heels, worn twice. Size 39.', ItemCategory.shoes,
+          ItemCondition.likeNew, 'high,heels', 2, 20000,
           age: const Duration(days: 2)),
 
-      // ----- Tobi (Miami) -----
+      // Tobi (Lagos)
       make('item_tobi_lamp', 'user_tobi', 'Modern Floor Lamp',
-          'Minimalist standing lamp, warm light.',
-          ItemCategory.home, ItemCondition.likeNew, 'floor,lamp', 2, 70,
+          'Minimalist standing lamp, warm light.', ItemCategory.home,
+          ItemCondition.likeNew, 'floor,lamp', 2, 18000,
           age: const Duration(days: 3)),
       make('item_tobi_backpack', 'user_tobi', 'Travel Backpack',
-          '40L water-resistant backpack. Barely used.',
-          ItemCategory.bags, ItemCondition.likeNew, 'backpack', 2, 85,
+          '40L water-resistant backpack.', ItemCategory.bags,
+          ItemCondition.likeNew, 'backpack', 2, 22000,
           age: const Duration(hours: 30)),
 
-      // ----- Lola (Atlanta) -----
-      make('item_lola_dress', 'user_lola', 'Floral Summer Dress',
-          'Flowy floral midi dress, size M. Worn once.',
-          ItemCategory.clothing, ItemCondition.likeNew, 'floral,dress', 2, 55,
+      // Ngozi (Enugu)
+      make('item_ngozi_dress', 'user_ngozi', 'Floral Summer Dress',
+          'Flowy floral midi dress, size M.', ItemCategory.clothing,
+          ItemCondition.likeNew, 'floral,dress', 2, 15000,
           age: const Duration(hours: 14)),
-      make('item_lola_camera', 'user_lola', 'Instant Film Camera',
-          'Retro instant camera + a pack of film.',
-          ItemCategory.electronics, ItemCondition.good, 'instant,camera', 2,
-          110,
+      make('item_ngozi_camera', 'user_ngozi', 'Instant Film Camera',
+          'Retro instant camera + a pack of film.', ItemCategory.electronics,
+          ItemCondition.good, 'instant,camera', 2, 60000,
           age: const Duration(days: 2)),
 
-      // ----- Diego (Miami) -----
-      make('item_diego_basketball', 'user_diego', 'Official Basketball',
-          'Indoor/outdoor leather basketball, great grip.',
-          ItemCategory.other, ItemCondition.good, 'basketball', 2, 35,
+      // Emeka (Lagos)
+      make('item_emeka_ball', 'user_emeka', 'Official Basketball',
+          'Indoor/outdoor leather basketball.', ItemCategory.other,
+          ItemCondition.good, 'basketball', 2, 9000,
           age: const Duration(hours: 6)),
-      make('item_diego_speaker', 'user_diego', 'Bluetooth Speaker',
-          'Portable waterproof speaker. Punchy bass.',
-          ItemCategory.electronics, ItemCondition.likeNew, 'bluetooth,speaker',
-          2, 90,
+      make('item_emeka_speaker', 'user_emeka', 'Bluetooth Speaker',
+          'Portable waterproof speaker.', ItemCategory.electronics,
+          ItemCondition.likeNew, 'bluetooth,speaker', 2, 28000,
           age: const Duration(days: 1)),
-      make('item_diego_sunglasses', 'user_diego', 'Polarized Sunglasses',
-          'Matte black frames, polarized lenses.',
-          ItemCategory.accessories, ItemCondition.good, 'sunglasses', 2, 50,
+      make('item_emeka_sunglasses', 'user_emeka', 'Polarized Sunglasses',
+          'Matte black frames, polarized lenses.', ItemCategory.accessories,
+          ItemCondition.good, 'sunglasses', 2, 14000,
           age: const Duration(days: 5)),
 
-      // ----- Mei (Tampa) -----
-      make('item_mei_cookbook', 'user_mei', 'Illustrated Cookbook',
-          'Hardcover cookbook, 200+ recipes. Like new.',
-          ItemCategory.books, ItemCondition.likeNew, 'cookbook', 2, 30,
+      // Aisha (Kano)
+      make('item_aisha_cookbook', 'user_aisha', 'Illustrated Cookbook',
+          'Hardcover cookbook, 200+ recipes.', ItemCategory.books,
+          ItemCondition.likeNew, 'cookbook', 2, 6000,
           age: const Duration(hours: 40)),
-      make('item_mei_vase', 'user_mei', 'Ceramic Vase',
-          'Handmade ceramic vase, soft matte glaze.',
-          ItemCategory.home, ItemCondition.likeNew, 'ceramic,vase', 2, 40,
+      make('item_aisha_vase', 'user_aisha', 'Ceramic Vase',
+          'Handmade ceramic vase, matte glaze.', ItemCategory.home,
+          ItemCondition.likeNew, 'ceramic,vase', 2, 10000,
           age: const Duration(days: 3)),
-      make('item_mei_scarf', 'user_mei', 'Silk Scarf',
-          'Patterned silk scarf, barely used.',
-          ItemCategory.accessories, ItemCondition.good, 'silk,scarf', 2, 28,
-          age: const Duration(days: 6)),
 
-      // ----- Sam (Austin) -----
-      make('item_sam_boots', 'user_sam', 'Hiking Boots',
-          'Waterproof hiking boots, size 44. Solid tread.',
-          ItemCategory.shoes, ItemCondition.good, 'hiking,boots', 2, 120,
+      // Chidi (Port Harcourt)
+      make('item_chidi_boots', 'user_chidi', 'Hiking Boots',
+          'Waterproof hiking boots, size 44.', ItemCategory.shoes,
+          ItemCondition.good, 'hiking,boots', 2, 35000,
           age: const Duration(hours: 18)),
-      make('item_sam_duffel', 'user_sam', 'Canvas Duffel Bag',
-          'Rugged canvas weekender duffel. Tons of room.',
-          ItemCategory.bags, ItemCondition.good, 'duffel,bag', 2, 65,
+      make('item_chidi_duffel', 'user_chidi', 'Canvas Duffel Bag',
+          'Rugged canvas weekender duffel.', ItemCategory.bags,
+          ItemCondition.good, 'duffel,bag', 2, 16000,
           age: const Duration(days: 2)),
-      make('item_sam_guitar', 'user_sam', 'Acoustic Guitar',
-          'Full-size acoustic, warm tone. Small ding on back.',
-          ItemCategory.other, ItemCondition.good, 'acoustic,guitar', 2, 160,
+      make('item_chidi_guitar', 'user_chidi', 'Acoustic Guitar',
+          'Full-size acoustic, warm tone.', ItemCategory.other,
+          ItemCondition.good, 'acoustic,guitar', 2, 70000,
           age: const Duration(days: 4)),
 
-      // ----- Priya (Miami) -----
-      make('item_priya_earrings', 'user_priya', 'Gold Hoop Earrings',
-          '14k-plated hoops, never worn. Comes boxed.',
-          ItemCategory.accessories, ItemCondition.likeNew, 'gold,earrings', 2,
-          45,
+      // Funke (Ibadan)
+      make('item_funke_earrings', 'user_funke', 'Gold Hoop Earrings',
+          '14k-plated hoops, never worn.', ItemCategory.accessories,
+          ItemCondition.likeNew, 'gold,earrings', 2, 13000,
           age: const Duration(hours: 7)),
-      make('item_priya_blazer', 'user_priya', 'Linen Blazer',
-          'Beige linen blazer, tailored fit. Size S.',
-          ItemCategory.clothing, ItemCondition.good, 'linen,blazer', 2, 70,
+      make('item_funke_blazer', 'user_funke', 'Linen Blazer',
+          'Beige linen blazer, tailored. Size S.', ItemCategory.clothing,
+          ItemCondition.good, 'linen,blazer', 2, 19000,
           age: const Duration(days: 1)),
 
-      // ----- Marcus (Jacksonville) -----
-      make('item_marcus_keyboard', 'user_marcus', 'Mechanical Keyboard',
-          'Hot-swappable mechanical keyboard, tactile switches.',
-          ItemCategory.electronics, ItemCondition.likeNew, 'mechanical,keyboard',
-          2, 100,
+      // Musa (Kaduna)
+      make('item_musa_keyboard', 'user_musa', 'Mechanical Keyboard',
+          'Hot-swappable, tactile switches.', ItemCategory.electronics,
+          ItemCondition.likeNew, 'mechanical,keyboard', 2, 32000,
           age: const Duration(hours: 12)),
-      make('item_marcus_shoes', 'user_marcus', 'Running Shoes',
-          'Lightweight running shoes, size 43. ~50 miles.',
-          ItemCategory.shoes, ItemCondition.good, 'running,shoes', 2, 75,
+      make('item_musa_shoes', 'user_musa', 'Running Shoes',
+          'Lightweight running shoes, size 43.', ItemCategory.shoes,
+          ItemCondition.good, 'running,shoes', 2, 24000,
           age: const Duration(days: 2)),
 
-      // ----- Nina (Atlanta) -----
-      make('item_nina_pillows', 'user_nina', 'Throw Pillow Set',
-          'Set of 2 boucle throw pillows, neutral tone.',
-          ItemCategory.home, ItemCondition.likeNew, 'throw,pillow', 2, 40,
+      // Blessing (Benin City)
+      make('item_blessing_pillows', 'user_blessing', 'Throw Pillow Set',
+          'Set of 2 boucle throw pillows.', ItemCategory.home,
+          ItemCondition.likeNew, 'throw,pillow', 2, 11000,
           age: const Duration(hours: 22)),
-      make('item_nina_tote', 'user_nina', 'Woven Tote Bag',
-          'Roomy woven tote, great for markets.',
-          ItemCategory.bags, ItemCondition.good, 'tote,bag', 2, 38,
+      make('item_blessing_tote', 'user_blessing', 'Woven Tote Bag',
+          'Roomy woven tote, great for markets.', ItemCategory.bags,
+          ItemCondition.good, 'tote,bag', 2, 9000, age: const Duration(days: 3)),
+
+      // Yusuf (Abuja)
+      make('item_yusuf_novels', 'user_yusuf', 'Graphic Novel Set',
+          'Boxed set of acclaimed graphic novels.', ItemCategory.books,
+          ItemCondition.good, 'comic,books', 2, 17000,
+          age: const Duration(hours: 16)),
+      make('item_yusuf_chess', 'user_yusuf', 'Wooden Chess Set',
+          'Hand-carved wooden chess set + board.', ItemCategory.other,
+          ItemCondition.likeNew, 'chess,set', 2, 15000,
+          age: const Duration(days: 2)),
+
+      // Chioma (Lagos)
+      make('item_chioma_perfume', 'user_chioma', 'Designer Perfume',
+          'Eau de parfum, 80% full. Long lasting.', ItemCategory.accessories,
+          ItemCondition.good, 'perfume,bottle', 2, 22000,
+          age: const Duration(hours: 5)),
+      make('item_chioma_handbag', 'user_chioma', 'Leather Handbag',
+          'Structured leather handbag, tan.', ItemCategory.bags,
+          ItemCondition.good, 'leather,handbag', 2, 30000,
+          age: const Duration(days: 1)),
+
+      // Ibrahim (Lagos)
+      make('item_ibrahim_earbuds', 'user_ibrahim', 'Wireless Earbuds',
+          'True wireless earbuds with case.', ItemCategory.electronics,
+          ItemCondition.likeNew, 'earbuds', 2, 27000,
+          age: const Duration(hours: 8)),
+      make('item_ibrahim_tablet', 'user_ibrahim', 'Android Tablet',
+          '10-inch tablet, 64GB. Works great otherwise.',
+          ItemCategory.electronics, ItemCondition.faulty, 'tablet', 2, 40000,
+          age: const Duration(days: 1),
+          defect: 'Small crack at the top-left corner of the screen; '
+              'touch and display work fully.'),
+
+      // Folake (Lagos)
+      make('item_folake_sneakers', 'user_folake', 'White Sneakers',
+          'Minimal white leather sneakers, size 40.', ItemCategory.shoes,
+          ItemCondition.good, 'white,sneakers', 2, 26000,
+          age: const Duration(hours: 10)),
+      make('item_folake_gown', 'user_folake', 'Evening Gown',
+          'Elegant floor-length gown, worn once.', ItemCategory.clothing,
+          ItemCondition.likeNew, 'evening,gown', 2, 33000,
+          age: const Duration(days: 2)),
+      make('item_folake_clutch', 'user_folake', 'Beaded Clutch',
+          'Hand-beaded evening clutch.', ItemCategory.bags,
+          ItemCondition.likeNew, 'clutch,bag', 2, 12000,
           age: const Duration(days: 3)),
 
-      // ----- Omar (Houston) -----
-      make('item_omar_novels', 'user_omar', 'Graphic Novel Set',
-          'Boxed set of acclaimed graphic novels.',
-          ItemCategory.books, ItemCondition.good, 'comic,books', 2, 60,
-          age: const Duration(hours: 16)),
-      make('item_omar_chess', 'user_omar', 'Wooden Chess Set',
-          'Hand-carved wooden chess set with board.',
-          ItemCategory.other, ItemCondition.likeNew, 'chess,set', 2, 55,
+      // Tunde (Port Harcourt)
+      make('item_tunde_dumbbells', 'user_tunde', 'Dumbbell Set',
+          'Adjustable dumbbell set, 20kg total.', ItemCategory.other,
+          ItemCondition.faulty, 'dumbbell', 2, 20000,
+          age: const Duration(hours: 14),
+          defect: 'One handle is slightly bent but fully usable.'),
+      make('item_tunde_monitor', 'user_tunde', 'Computer Monitor',
+          '24-inch 1080p monitor, HDMI + VGA.', ItemCategory.electronics,
+          ItemCondition.good, 'computer,monitor', 2, 48000,
           age: const Duration(days: 2)),
     ];
   }

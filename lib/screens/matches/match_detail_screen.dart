@@ -11,6 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/swipe_match_provider.dart';
 import '../../widgets/common_widgets.dart';
 import '../chat/chat_screen.dart';
+import '../profile/user_profile_screen.dart';
 
 /// Review screen for a confirmed swap: shows both items, the other swapper,
 /// and a gateway into the product-scoped chat.
@@ -100,8 +101,17 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   }
 
   Widget _swapperHeader(UserModel? other) {
-    return Row(
-      children: [
+    return InkWell(
+      onTap: other == null
+          ? null
+          : () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => UserProfileScreen(user: other),
+                ),
+              ),
+      borderRadius: BorderRadius.circular(12),
+      child: Row(
+        children: [
         CircleAvatar(
           radius: 26,
           backgroundColor: AppColors.primary.withValues(alpha: 0.15),
@@ -144,6 +154,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
           ),
         ),
       ],
+      ),
     );
   }
 

@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 
 import '../core/constants/app_constants.dart';
+import '../models/enums.dart';
+import '../models/item_model.dart';
 import '../models/user_model.dart';
 import '../services/auth/auth_identity.dart';
 import '../services/auth/auth_service.dart';
@@ -18,6 +21,7 @@ class AuthProvider extends ChangeNotifier {
   final AuthService _auth;
   final DataRepository _repo;
   final LocalStorageService _storage;
+  static const _uuid = Uuid();
 
   AuthIdentity? _identity;
   UserModel? _currentUser;
@@ -46,7 +50,8 @@ class AuthProvider extends ChangeNotifier {
     return u.name.trim().isEmpty ||
         u.gender == null ||
         u.dob == null ||
-        u.city.trim().isEmpty;
+        u.city.trim().isEmpty ||
+        (u.avatarUrl == null || u.avatarUrl!.trim().isEmpty);
   }
 
   bool get codeSent => _phoneHandle != null;
@@ -201,7 +206,52 @@ class AuthProvider extends ChangeNotifier {
     );
     await _repo.upsertUser(updated);
     _currentUser = updated;
+    await _seedStarterItems(updated);
     notifyListeners();
+  }
+
+  /// Give a brand-new account a few starter listings so matchmaking works out
+  /// of the box: listing them attracts compatible community admirers (people
+  /// who already like the user's items), so swiping those admirers in Discover
+  /// matches instantly. Runs once. Users can delete these in My Items.
+  Future<void> _seedStarterItems(UserModel user) async {
+    final existing = await _repo.getItemsByOwner(user.id);
+    if (existing.isNotEmpty) return;
+
+    final now = DateTime.now();
+    var lock = 700;
+    ItemModel mk(String title, String desc, ItemCategory cat,
+        ItemCondition cond, String kw, double value) {
+      return ItemModel(
+        id: _uuid.v4(),
+        ownerId: user.id,
+        title: title,
+        description: desc,
+        category: cat,
+        condition: cond,
+        images: [
+          'https://loremflickr.com/800/1000/$kw?lock=${lock++}',
+          'https://loremflickr.com/800/1000/$kw?lock=${lock++}',
+        ],
+        estimatedValue: value,
+        city: user.city,
+        state: user.state,
+        createdAt: now,
+      );
+    }
+
+    final starters = [
+      mk('Graphic Tee', 'Soft cotton tee, barely worn.',
+          ItemCategory.clothing, ItemCondition.good, 'graphic,tshirt', 6000),
+      mk('Wireless Mouse', 'Compact wireless mouse, works perfectly.',
+          ItemCategory.electronics, ItemCondition.likeNew, 'computer,mouse',
+          9000),
+      mk('Knit Throw Blanket', 'Cozy knit throw blanket.', ItemCategory.home,
+          ItemCondition.good, 'throw,blanket', 11000),
+    ];
+    for (final it in starters) {
+      await _repo.addItem(it); // also generates compatible admirers
+    }
   }
 
   Future<void> updateProfile({

@@ -35,6 +35,20 @@ class _SwipeScreenState extends State<SwipeScreen> {
   List<ItemModel> _viewDeck = [];
   bool _didInitialLoad = false;
 
+  /// Which photo each card is showing, keyed by item id (controlled here so the
+  /// left/right tap shares the card's gesture detector and never gets lost).
+  final Map<String, int> _photoIndex = {};
+
+  void _cyclePhoto(ItemModel item, bool next) {
+    final count = item.images.isEmpty ? 1 : item.images.length;
+    if (count <= 1) return;
+    final cur = _photoIndex[item.id] ?? 0;
+    setState(() {
+      _photoIndex[item.id] =
+          next ? (cur + 1) % count : (cur - 1 + count) % count;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -295,6 +309,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
         items: _viewDeck,
         controller: _cardController,
         onSwipe: _handleSwipe,
+        onPhotoTap: _cyclePhoto,
         onEmpty: () {
           if (mounted) setState(() => _exhausted = true);
         },
@@ -304,6 +319,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
             builder: (context, snap) => SwipeCard(
               item: item,
               owner: snap.data,
+              photoIndex: _photoIndex[item.id] ?? 0,
               distanceLabel: ServiceLocator.locationService.labelFor(item),
               onExpand: () => _openDetail(item, snap.data),
               onExpire: () => _onCardExpired(item),

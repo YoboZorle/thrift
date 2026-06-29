@@ -15,4 +15,11 @@ class AppConfig {
 
   /// Fallback city label shown before/without location permission.
   static const String fallbackLocationLabel = 'Location off';
+
+  /// Support & reporting. Tapping "Contact support" / "Report" opens a direct
+  /// WhatsApp chat with the admin. Replace with your real number in
+  /// INTERNATIONAL format, digits only (no '+', spaces or dashes).
+  /// e.g. Nigeria: 2348012345678
+  static const String adminWhatsAppNumber = '2348000000000';
+  static const String supportName = 'ThriftSwap Support';
 }

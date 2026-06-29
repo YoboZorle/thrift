@@ -5,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/constants/us_states.dart';
+import '../../core/constants/ng_states.dart';
 import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/common_widgets.dart';
@@ -26,7 +26,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   DateTime? _dob;
   bool _saving = false;
 
-  static const _genders = ['Female', 'Male', 'Non-binary', 'Prefer not to say'];
+  static const _genders = ['Male', 'Female'];
 
   @override
   void initState() {
@@ -61,22 +61,38 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   Future<void> _pickDob() async {
     final now = DateTime.now();
+    final eighteen = DateTime(now.year - 18, now.month, now.day);
     final picked = await showDatePicker(
       context: context,
-      initialDate: _dob ?? DateTime(now.year - 22, now.month, now.day),
+      initialDate: _dob ?? eighteen,
       firstDate: DateTime(now.year - 100),
-      lastDate: DateTime(now.year - 13, now.month, now.day),
-      helpText: 'Select your date of birth',
+      // You must be at least 18 — can't pick a date more recent than this.
+      lastDate: eighteen,
+      helpText: 'Select your date of birth (18+)',
     );
     if (picked != null) setState(() => _dob = picked);
   }
 
+  bool _isAtLeast18(DateTime dob) {
+    final now = DateTime.now();
+    var age = now.year - dob.year;
+    if (now.month < dob.month ||
+        (now.month == dob.month && now.day < dob.day)) {
+      age--;
+    }
+    return age >= 18;
+  }
+
   String? _validate() {
+    if (_avatarPath == null || _avatarPath!.isEmpty) {
+      return 'Please add a profile picture.';
+    }
     if (_nameCtrl.text.trim().isEmpty) return 'Please add your name.';
     if (_gender == null) return 'Please select your gender.';
     if (_dob == null) return 'Please select your date of birth.';
-    if (_cityCtrl.text.trim().isEmpty) return 'Please add your city.';
+    if (!_isAtLeast18(_dob!)) return 'You must be 18 or older to use ThriftSwap.';
     if (_state == null) return 'Please select your state.';
+    if (_cityCtrl.text.trim().isEmpty) return 'Please add your city.';
     return null;
   }
 
@@ -147,7 +163,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                _avatarPath == null ? 'Add a profile photo (required)' : 'Tap to change photo',
+                style: const TextStyle(
+                    color: AppColors.textHint, fontSize: 12.5),
+              ),
+            ),
+            const SizedBox(height: 20),
             _label('Display name'),
             TextField(
               controller: _nameCtrl,
@@ -197,20 +221,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            _label('City'),
-            TextField(
-              controller: _cityCtrl,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(hintText: 'e.g. Miami'),
-            ),
-            const SizedBox(height: 18),
             _label('State'),
             DropdownFlutter<String>(
               decoration: appDropdownDecoration(),
               hintText: 'Select state',
-              items: usStates,
+              items: nigerianStates,
               initialItem: _state,
               onChanged: (value) => setState(() => _state = value),
+            ),
+            const SizedBox(height: 18),
+            _label('City'),
+            TextField(
+              controller: _cityCtrl,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(hintText: 'e.g. Lekki'),
             ),
             const SizedBox(height: 28),
             SizedBox(

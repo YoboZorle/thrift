@@ -17,6 +17,7 @@ class SwipeCard extends StatefulWidget {
     required this.item,
     this.owner,
     this.distanceLabel,
+    this.photoIndex = 0,
     this.onExpand,
     this.onExpire,
   });
@@ -24,6 +25,11 @@ class SwipeCard extends StatefulWidget {
   final ItemModel item;
   final UserModel? owner;
   final String? distanceLabel;
+
+  /// Which photo to show — controlled by the parent (the card stack handles the
+  /// left/right tap on the same gesture detector as the swipe pan, so taps are
+  /// never lost to a gesture-arena conflict).
+  final int photoIndex;
   final VoidCallback? onExpand;
   final VoidCallback? onExpire;
 
@@ -32,8 +38,6 @@ class SwipeCard extends StatefulWidget {
 }
 
 class _SwipeCardState extends State<SwipeCard> {
-  int _photo = 0;
-
   List<String> get _images =>
       widget.item.images.isEmpty ? [''] : widget.item.images;
 
@@ -80,19 +84,10 @@ class _SwipeCardState extends State<SwipeCard> {
     );
   }
 
-  void _tapZone(bool next) {
-    setState(() {
-      if (next) {
-        _photo = (_photo + 1) % _images.length;
-      } else {
-        _photo = (_photo - 1 + _images.length) % _images.length;
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
+    final photo = widget.photoIndex.clamp(0, _images.length - 1);
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(26),
@@ -109,25 +104,7 @@ class _SwipeCardState extends State<SwipeCard> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          ItemImage(source: _images[_photo], fit: BoxFit.cover),
-
-          // Tap zones for photo browsing (don't interfere with pan-to-swipe).
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () => _tapZone(false),
-                ),
-              ),
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () => _tapZone(true),
-                ),
-              ),
-            ],
-          ),
+          ItemImage(source: _images[photo], fit: BoxFit.cover),
 
           // Scrim for legibility.
           const Positioned.fill(
@@ -149,10 +126,10 @@ class _SwipeCardState extends State<SwipeCard> {
                   (i) => AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: i == _photo ? 22 : 7,
+                    width: i == photo ? 22 : 7,
                     height: 7,
                     decoration: BoxDecoration(
-                      color: i == _photo
+                      color: i == photo
                           ? Colors.white
                           : Colors.white.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(4),

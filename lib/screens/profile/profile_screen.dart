@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/constants/us_states.dart';
+import '../../core/constants/ng_states.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/support.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/items_provider.dart';
@@ -77,6 +78,20 @@ class ProfileScreen extends StatelessWidget {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ActivityScreen()),
             ),
+          ),
+          const SizedBox(height: 20),
+          _sectionLabel('Help & support'),
+          _tile(
+            icon: Icons.support_agent_rounded,
+            title: 'Contact support',
+            subtitle: 'Chat with our admin on WhatsApp',
+            onTap: () => _openSupport(context, Support.generalHelp()),
+          ),
+          _tile(
+            icon: Icons.flag_outlined,
+            title: 'Report a problem',
+            subtitle: 'Report a user, listing or any issue',
+            onTap: () => _openSupport(context, Support.generalHelp()),
           ),
           const SizedBox(height: 20),
           _sectionLabel('Account'),
@@ -270,6 +285,18 @@ class ProfileScreen extends StatelessWidget {
   }
 
 
+  Future<void> _openSupport(BuildContext context, String message) async {
+    final ok = await Support.contactAdmin(message: message);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Couldn\'t open WhatsApp. Please install it or try again later.'),
+        ),
+      );
+    }
+  }
+
   Future<void> _confirmReset(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -336,7 +363,7 @@ class ProfileScreen extends StatelessWidget {
     String? gender = user.gender;
     String? state = user.state.isEmpty ? null : user.state;
     DateTime? dob = user.dob;
-    const genders = ['Female', 'Male', 'Non-binary', 'Prefer not to say'];
+    const genders = ['Male', 'Female'];
 
     final saved = await showModalBottomSheet<bool>(
       context: context,
@@ -349,9 +376,9 @@ class ProfileScreen extends StatelessWidget {
               final now = DateTime.now();
               final picked = await showDatePicker(
                 context: sheetCtx,
-                initialDate: dob ?? DateTime(now.year - 22),
+                initialDate: dob ?? DateTime(now.year - 18),
                 firstDate: DateTime(now.year - 100),
-                lastDate: DateTime(now.year - 13),
+                lastDate: DateTime(now.year - 18),
               );
               if (picked != null) setSheet(() => dob = picked);
             }
@@ -418,7 +445,7 @@ class ProfileScreen extends StatelessWidget {
                     DropdownFlutter<String>(
               decoration: appDropdownDecoration(),
                       hintText: 'State',
-                      items: usStates,
+                      items: nigerianStates,
                       initialItem: state,
                       onChanged: (v) => setSheet(() => state = v),
                     ),

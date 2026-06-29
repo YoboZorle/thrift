@@ -10,6 +10,7 @@ import '../../services/service_locator.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/countdown_text.dart';
 import '../common/fullscreen_gallery.dart';
+import '../profile/user_profile_screen.dart';
 
 /// What the user chose on the scrollable detail view; the swipe screen acts on
 /// it (triggering the same animated like/pass, or a save).
@@ -238,8 +239,15 @@ class _SwipeItemDetailScreenState extends State<SwipeItemDetailScreen> {
   }
 
   Widget _ownerSection(UserModel owner) {
-    return Row(
-      children: [
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => UserProfileScreen(user: owner),
+        ),
+      ),
+      borderRadius: BorderRadius.circular(12),
+      child: Row(
+        children: [
         ClipOval(
           child: SizedBox(
             width: 54,
@@ -271,6 +279,7 @@ class _SwipeItemDetailScreenState extends State<SwipeItemDetailScreen> {
           ),
         ),
       ],
+      ),
     );
   }
 

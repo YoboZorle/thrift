@@ -14,10 +14,14 @@ class AppConstants {
   static const String kSaved = 'ts_saved';
   static const String kCurrentUserId = 'ts_current_user_id';
   static const String kProfileSetupDone = 'ts_profile_setup_done';
-  static const String kSeeded = 'ts_seeded_v7';
+  static const String kSeeded = 'ts_seeded_v9';
 
   // Local auth session (persists the signed-in identity across restarts)
   static const String kAuthSession = 'ts_auth_session';
+
+  /// Author id used for the automatic, neutral match guidance note that both
+  /// users see at the top of a new chat (rendered as a centered info card).
+  static const String kSystemSenderId = 'ts_system';
 
   // Swipe behaviour
   static const double swipeThreshold = 110.0;

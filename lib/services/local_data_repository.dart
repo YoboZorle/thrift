@@ -333,24 +333,30 @@ class LocalDataRepository implements DataRepository {
     return match;
   }
 
-  /// Gives every new match a unique opening message from the other party,
-  /// so the chat thread starts with real, swap-specific content.
+  /// On a new match, drop ONE neutral guidance note into the thread (authored
+  /// by the system, so it reads identically for both users) with a brief,
+  /// safety-minded intro. It shows before anyone types, so both people start
+  /// on the same note.
   void _seedOpeningMessage(MatchModel match) {
     String titleOf(String id) {
       for (final i in _items) {
         if (i.id == id) return i.title;
       }
-      return 'your item';
+      return 'an item';
     }
 
-    final theirItemTitle = titleOf(match.itemBId);
-    final yourItemTitle = titleOf(match.itemAId);
+    final text =
+        '🎉 It\'s a match! You\'re here to swap ${titleOf(match.itemAId)} ⇄ '
+        '${titleOf(match.itemBId)}. Quick tips: meet in a public, comfortable '
+        'place, inspect items before swapping, make sure your item matches its '
+        'photos, and use a courier for delivery where you can. Sort out the '
+        'details below 👇';
+
     _messages.add(MessageModel(
       id: _uuid.v4(),
       matchId: match.id,
-      senderId: match.userBId,
-      text: 'Hey! Love your $yourItemTitle 🙌 '
-          'Want to swap it for my $theirItemTitle?',
+      senderId: AppConstants.kSystemSenderId,
+      text: text,
       createdAt: DateTime.now(),
     ));
   }
