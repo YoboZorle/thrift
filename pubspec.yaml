@@ -57,6 +57,13 @@ dependencies:
   geolocator: ^13.0.1
   flutter_local_notifications: ^17.2.3
 
+  # Backend (used only when AppConfig.useFirebase = true; see BACKEND_SETUP.md).
+  # The app still runs fully offline with these present but the flag off.
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.4
+  firebase_storage: ^12.3.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
